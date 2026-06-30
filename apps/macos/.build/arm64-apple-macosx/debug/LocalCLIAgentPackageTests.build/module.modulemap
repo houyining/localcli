@@ -1,0 +1,4 @@
+module LocalCLIAgentPackageTests {
+    header "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/debug/LocalCLIAgentPackageTests.build/LocalCLIAgentPackageTests-Swift.h"
+    requires objc
+}

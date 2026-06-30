@@ -1,0 +1,15 @@
+{
+  "name": "local-cli-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sidecar:dev": "node --experimental-strip-types sidecar/src/main.ts --enable-fake-provider",
+    "sidecar:test": "node --experimental-strip-types --test sidecar/test/*.test.ts",
+    "demo:serve": "node demo/web/server.mjs",
+    "test": "npm run sidecar:test"
+  },
+  "engines": {
+    "node": ">=22.6.0"
+  }
+}

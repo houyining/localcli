@@ -1,0 +1,16 @@
+version: "Apple Swift version 6.0.3 (swiftlang-6.0.3.1.10 clang-1600.0.30.1)"
+options: "106e7a6fc758ed50e14f8ce4fc3970299d5c2d180bb71aba8b7c2e52edee54b7"
+build_start_time: [1782467935, 584941000]
+build_end_time: [1782467937, 672672000]
+inputs:
+  "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/AdminClient.swift": [1782285198, 485633279]
+  "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/AppDelegate.swift": [1782467034, 653098268]
+  "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/ClientsWindowController.swift": [1782285259, 156973792]
+  "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/MenuBarAgentState.swift": [1782467026, 576919504]
+  "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/MenuBarIconAnimator.swift": [1782463712, 75020896]
+  "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/Models.swift": [1782285198, 378207895]
+  "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/PixelWhaleIconRenderer.swift": [1782467897, 407543615]
+  "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/SettingsWindowController.swift": [1782285335, 684835177]
+  "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/SidecarController.swift": [1782292832, 203736150]
+  "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/TextWindowController.swift": [1782283256, 927759525]
+  "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/main.swift": [1782283256, 510223688]

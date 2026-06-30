@@ -1,0 +1,11 @@
+{
+  "": {
+    "swift-dependencies": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/debug/LocalCLIAgentPackageTests.build/master.swiftdeps"
+  },
+  "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/debug/LocalCLIAgentPackageTests.derived/runner.swift": {
+    "dependencies": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/debug/LocalCLIAgentPackageTests.build/runner.d",
+    "object": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/debug/LocalCLIAgentPackageTests.build/runner.swift.o",
+    "swiftmodule": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/debug/LocalCLIAgentPackageTests.build/runner~partial.swiftmodule",
+    "swift-dependencies": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/debug/LocalCLIAgentPackageTests.build/runner.swiftdeps"
+  }
+}

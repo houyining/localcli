@@ -1,0 +1,62 @@
+{
+  "": {
+    "dependencies": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/LocalCLIAgent.d",
+    "object": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/LocalCLIAgent.o",
+    "swift-dependencies": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/master.swiftdeps"
+  },
+  "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/AdminClient.swift": {
+    "object": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/AdminClient.swift.o",
+    "swiftmodule": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/AdminClient~partial.swiftmodule",
+    "swift-dependencies": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/AdminClient.swiftdeps"
+  },
+  "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/AppDelegate.swift": {
+    "object": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/AppDelegate.swift.o",
+    "swiftmodule": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/AppDelegate~partial.swiftmodule",
+    "swift-dependencies": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/AppDelegate.swiftdeps"
+  },
+  "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/ClientsWindowController.swift": {
+    "object": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/ClientsWindowController.swift.o",
+    "swiftmodule": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/ClientsWindowController~partial.swiftmodule",
+    "swift-dependencies": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/ClientsWindowController.swiftdeps"
+  },
+  "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/MenuBarAgentState.swift": {
+    "object": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/MenuBarAgentState.swift.o",
+    "swiftmodule": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/MenuBarAgentState~partial.swiftmodule",
+    "swift-dependencies": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/MenuBarAgentState.swiftdeps"
+  },
+  "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/MenuBarIconAnimator.swift": {
+    "object": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/MenuBarIconAnimator.swift.o",
+    "swiftmodule": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/MenuBarIconAnimator~partial.swiftmodule",
+    "swift-dependencies": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/MenuBarIconAnimator.swiftdeps"
+  },
+  "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/Models.swift": {
+    "object": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/Models.swift.o",
+    "swiftmodule": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/Models~partial.swiftmodule",
+    "swift-dependencies": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/Models.swiftdeps"
+  },
+  "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/PixelWhaleIconRenderer.swift": {
+    "object": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/PixelWhaleIconRenderer.swift.o",
+    "swiftmodule": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/PixelWhaleIconRenderer~partial.swiftmodule",
+    "swift-dependencies": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/PixelWhaleIconRenderer.swiftdeps"
+  },
+  "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/SettingsWindowController.swift": {
+    "object": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/SettingsWindowController.swift.o",
+    "swiftmodule": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/SettingsWindowController~partial.swiftmodule",
+    "swift-dependencies": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/SettingsWindowController.swiftdeps"
+  },
+  "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/SidecarController.swift": {
+    "object": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/SidecarController.swift.o",
+    "swiftmodule": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/SidecarController~partial.swiftmodule",
+    "swift-dependencies": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/SidecarController.swiftdeps"
+  },
+  "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/TextWindowController.swift": {
+    "object": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/TextWindowController.swift.o",
+    "swiftmodule": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/TextWindowController~partial.swiftmodule",
+    "swift-dependencies": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/TextWindowController.swiftdeps"
+  },
+  "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/main.swift": {
+    "object": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/main.swift.o",
+    "swiftmodule": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/main~partial.swiftmodule",
+    "swift-dependencies": "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/main.swiftdeps"
+  }
+}

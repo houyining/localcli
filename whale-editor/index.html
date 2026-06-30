@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Whale Pixel Editor</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <h1>Whale Pixel Editor</h1>
+          <p id="statusText">serviceRunning · Frame 1</p>
+        </div>
+        <div class="top-actions">
+          <button id="exportCurrentButton" type="button">Export State</button>
+          <button id="exportAllButton" type="button">Export All</button>
+          <button id="resetAllButton" type="button">Reset All</button>
+          <button id="copyButton" type="button">Copy</button>
+        </div>
+      </header>
+
+      <section class="workspace" aria-label="Pixel editor">
+        <aside class="sidebar" aria-label="States and frames">
+          <div class="panel-header">
+            <h2>States</h2>
+          </div>
+          <div id="stateList" class="state-list"></div>
+
+          <div class="panel-header frame-header">
+            <h2>Frames</h2>
+            <div class="icon-row">
+              <button id="previousFrameButton" type="button" title="Previous frame">Prev</button>
+              <button id="nextFrameButton" type="button" title="Next frame">Next</button>
+            </div>
+          </div>
+          <div id="frameList" class="frame-list"></div>
+          <div class="frame-actions">
+            <button id="addFrameButton" type="button">Add</button>
+            <button id="duplicateFrameButton" type="button">Duplicate</button>
+            <button id="deleteFrameButton" type="button">Delete</button>
+          </div>
+        </aside>
+
+        <section class="editor-panel" aria-label="Frame pixels">
+          <div class="panel-header">
+            <h2>Grid</h2>
+            <span id="gridMeta">16 x 16</span>
+          </div>
+          <div id="pixelGrid" class="pixel-grid" aria-label="Current frame grid"></div>
+          <div class="edit-actions" aria-label="Frame edit actions">
+            <button id="selectModeButton" type="button">Select</button>
+            <button id="clearSelectionButton" type="button">Clear Selection</button>
+            <span id="selectionCount" class="selection-count">0 selected</span>
+            <button id="shiftUpButton" type="button">Up</button>
+            <button id="shiftDownButton" type="button">Down</button>
+            <button id="shiftLeftButton" type="button">Left</button>
+            <button id="shiftRightButton" type="button">Right</button>
+            <button id="invertButton" type="button">Invert</button>
+            <button id="clearButton" type="button">Clear</button>
+          </div>
+        </section>
+
+        <aside class="preview-panel" aria-label="Preview and export">
+          <div class="panel-header">
+            <h2>Preview</h2>
+            <button id="playButton" type="button">Play</button>
+          </div>
+          <div class="menu-preview" aria-label="Menu bar preview">
+            <div class="menu-icon" id="menuIcon"></div>
+            <div class="neighbor-dot"></div>
+            <div class="neighbor-pill"></div>
+            <div class="neighbor-mark"></div>
+          </div>
+          <canvas id="largePreview" width="240" height="240" aria-label="Large preview"></canvas>
+          <div class="preview-meta">
+            <span id="pixelCount">0 pixels</span>
+            <span id="validationText">Valid</span>
+          </div>
+
+          <div class="panel-header export-header">
+            <h2>Swift</h2>
+          </div>
+          <textarea id="exportOutput" spellcheck="false" aria-label="Swift export"></textarea>
+        </aside>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

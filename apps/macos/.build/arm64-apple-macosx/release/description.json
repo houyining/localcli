@@ -1,0 +1,809 @@
+{
+  "builtTestProducts" : [
+    {
+      "binaryPath" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentPackageTests.xctest/Contents/MacOS/LocalCLIAgentPackageTests",
+      "packagePath" : "/Users/bytedance/Apps/localcli/apps/macos",
+      "productName" : "LocalCLIAgentPackageTests"
+    }
+  ],
+  "copyCommands" : {
+
+  },
+  "explicitTargetDependencyImportCheckingMode" : {
+    "none" : {
+
+    }
+  },
+  "generatedSourceTargetSet" : [
+
+  ],
+  "pluginDescriptions" : [
+
+  ],
+  "swiftCommands" : {
+    "C.LocalCLIAgent-arm64-apple-macosx14.0-release.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/sources",
+      "importPath" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/AdminClient.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/AppDelegate.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/ClientsWindowController.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/MenuBarAgentState.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/MenuBarIconAnimator.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/Models.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/PixelWhaleIconRenderer.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/SettingsWindowController.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/SidecarController.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/TextWindowController.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/main.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/sources"
+        }
+      ],
+      "isLibrary" : false,
+      "moduleName" : "LocalCLIAgent",
+      "moduleOutputPath" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/Modules/LocalCLIAgent.swiftmodule",
+      "objects" : [
+        "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/AdminClient.swift.o",
+        "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/AppDelegate.swift.o",
+        "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/ClientsWindowController.swift.o",
+        "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/MenuBarAgentState.swift.o",
+        "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/MenuBarIconAnimator.swift.o",
+        "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/Models.swift.o",
+        "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/PixelWhaleIconRenderer.swift.o",
+        "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/SettingsWindowController.swift.o",
+        "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/SidecarController.swift.o",
+        "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/TextWindowController.swift.o",
+        "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/main.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx13.0",
+        "-O",
+        "-j12",
+        "-DSWIFT_PACKAGE",
+        "-module-cache-path",
+        "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/ModuleCache",
+        "-parseable-output",
+        "-Xfrontend",
+        "-entry-point-function-name",
+        "-Xfrontend",
+        "LocalCLIAgent_main",
+        "-swift-version",
+        "6",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "macos"
+      ],
+      "outputFileMapPath" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/AdminClient.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/AppDelegate.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/ClientsWindowController.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/MenuBarAgentState.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/MenuBarIconAnimator.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/Models.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/PixelWhaleIconRenderer.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/SettingsWindowController.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/SidecarController.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/TextWindowController.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/main.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/Modules/LocalCLIAgent.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/AdminClient.swift",
+        "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/AppDelegate.swift",
+        "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/ClientsWindowController.swift",
+        "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/MenuBarAgentState.swift",
+        "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/MenuBarIconAnimator.swift",
+        "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/Models.swift",
+        "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/PixelWhaleIconRenderer.swift",
+        "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/SettingsWindowController.swift",
+        "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/SidecarController.swift",
+        "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/TextWindowController.swift",
+        "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/main.swift"
+      ],
+      "tempsPath" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build",
+      "wholeModuleOptimization" : true
+    },
+    "C.LocalCLIAgentPackageTests-arm64-apple-macosx14.0-release.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentPackageTests.build/sources",
+      "importPath" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentPackageTests.derived/runner.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/Modules/LocalCLIAgentTests.swiftmodule"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentPackageTests.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "LocalCLIAgentPackageTests",
+      "moduleOutputPath" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/Modules/LocalCLIAgentPackageTests.swiftmodule",
+      "objects" : [
+        "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentPackageTests.build/runner.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx13.0",
+        "-O",
+        "-enable-testing",
+        "-j12",
+        "-DSWIFT_PACKAGE",
+        "-module-cache-path",
+        "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentPackageTests.build/LocalCLIAgentPackageTests-Swift.h",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "macos"
+      ],
+      "outputFileMapPath" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentPackageTests.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentPackageTests.build/runner.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/Modules/LocalCLIAgentPackageTests.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentPackageTests.derived/runner.swift"
+      ],
+      "tempsPath" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentPackageTests.build",
+      "wholeModuleOptimization" : true
+    },
+    "C.LocalCLIAgentTests-arm64-apple-macosx14.0-release.module" : {
+      "executable" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "fileList" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentTests.build/sources",
+      "importPath" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/Modules",
+      "inputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Tests/LocalCLIAgentTests/MenuBarAgentStateTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Tests/LocalCLIAgentTests/SidecarControllerTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentTests.build/sources"
+        }
+      ],
+      "isLibrary" : true,
+      "moduleName" : "LocalCLIAgentTests",
+      "moduleOutputPath" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/Modules/LocalCLIAgentTests.swiftmodule",
+      "objects" : [
+        "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentTests.build/MenuBarAgentStateTests.swift.o",
+        "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentTests.build/SidecarControllerTests.swift.o"
+      ],
+      "otherArguments" : [
+        "-target",
+        "arm64-apple-macosx13.0",
+        "-index-store-path",
+        "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/index/store",
+        "-O",
+        "-enable-testing",
+        "-j12",
+        "-DSWIFT_PACKAGE",
+        "-module-cache-path",
+        "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-swift-version",
+        "6",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "macos"
+      ],
+      "outputFileMapPath" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentTests.build/output-file-map.json",
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentTests.build/MenuBarAgentStateTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentTests.build/SidecarControllerTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/Modules/LocalCLIAgentTests.swiftmodule"
+        }
+      ],
+      "prepareForIndexing" : false,
+      "sources" : [
+        "/Users/bytedance/Apps/localcli/apps/macos/Tests/LocalCLIAgentTests/MenuBarAgentStateTests.swift",
+        "/Users/bytedance/Apps/localcli/apps/macos/Tests/LocalCLIAgentTests/SidecarControllerTests.swift"
+      ],
+      "tempsPath" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentTests.build",
+      "wholeModuleOptimization" : true
+    }
+  },
+  "swiftFrontendCommands" : {
+
+  },
+  "swiftTargetScanArgs" : {
+    "LocalCLIAgent" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "LocalCLIAgent",
+      "-package-name",
+      "macos",
+      "-whole-module-optimization",
+      "-num-threads",
+      "12",
+      "-c",
+      "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/AdminClient.swift",
+      "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/AppDelegate.swift",
+      "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/ClientsWindowController.swift",
+      "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/MenuBarAgentState.swift",
+      "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/MenuBarIconAnimator.swift",
+      "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/Models.swift",
+      "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/PixelWhaleIconRenderer.swift",
+      "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/SettingsWindowController.swift",
+      "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/SidecarController.swift",
+      "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/TextWindowController.swift",
+      "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/main.swift",
+      "-I",
+      "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/Modules",
+      "-target",
+      "arm64-apple-macosx13.0",
+      "-O",
+      "-j12",
+      "-DSWIFT_PACKAGE",
+      "-module-cache-path",
+      "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/ModuleCache",
+      "-parseable-output",
+      "-Xfrontend",
+      "-entry-point-function-name",
+      "-Xfrontend",
+      "LocalCLIAgent_main",
+      "-swift-version",
+      "6",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "macos",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "LocalCLIAgentPackageTests" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "LocalCLIAgentPackageTests",
+      "-package-name",
+      "macos",
+      "-whole-module-optimization",
+      "-num-threads",
+      "12",
+      "-c",
+      "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentPackageTests.derived/runner.swift",
+      "-I",
+      "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/Modules",
+      "-target",
+      "arm64-apple-macosx13.0",
+      "-O",
+      "-enable-testing",
+      "-j12",
+      "-DSWIFT_PACKAGE",
+      "-module-cache-path",
+      "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-emit-objc-header",
+      "-emit-objc-header-path",
+      "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentPackageTests.build/LocalCLIAgentPackageTests-Swift.h",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "macos",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ],
+    "LocalCLIAgentTests" : [
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      "-module-name",
+      "LocalCLIAgentTests",
+      "-package-name",
+      "macos",
+      "-whole-module-optimization",
+      "-num-threads",
+      "12",
+      "-c",
+      "/Users/bytedance/Apps/localcli/apps/macos/Tests/LocalCLIAgentTests/MenuBarAgentStateTests.swift",
+      "/Users/bytedance/Apps/localcli/apps/macos/Tests/LocalCLIAgentTests/SidecarControllerTests.swift",
+      "-I",
+      "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/Modules",
+      "-target",
+      "arm64-apple-macosx13.0",
+      "-index-store-path",
+      "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/index/store",
+      "-O",
+      "-enable-testing",
+      "-j12",
+      "-DSWIFT_PACKAGE",
+      "-module-cache-path",
+      "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/ModuleCache",
+      "-parseable-output",
+      "-parse-as-library",
+      "-swift-version",
+      "6",
+      "-sdk",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk",
+      "-F",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-I",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-L",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+      "-g",
+      "-Xcc",
+      "-isysroot",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk",
+      "-Xcc",
+      "-F",
+      "-Xcc",
+      "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+      "-Xcc",
+      "-fPIC",
+      "-Xcc",
+      "-g",
+      "-package-name",
+      "macos",
+      "-driver-use-frontend-path",
+      "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+    ]
+  },
+  "targetDependencyMap" : {
+    "LocalCLIAgent" : [
+
+    ],
+    "LocalCLIAgentPackageTests" : [
+      "LocalCLIAgentTests",
+      "LocalCLIAgent"
+    ],
+    "LocalCLIAgentTests" : [
+      "LocalCLIAgent"
+    ]
+  },
+  "testDiscoveryCommands" : {
+
+  },
+  "testEntryPointCommands" : {
+    "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentPackageTests.derived/runner.swift" : {
+      "inputs" : [
+
+      ],
+      "outputs" : [
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentPackageTests.derived/runner.swift"
+        }
+      ]
+    }
+  },
+  "writeCommands" : {
+    "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/AdminClient.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/AppDelegate.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/ClientsWindowController.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/MenuBarAgentState.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/MenuBarIconAnimator.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/Models.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/PixelWhaleIconRenderer.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/SettingsWindowController.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/SidecarController.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/TextWindowController.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Sources/LocalCLIAgent/main.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/sources"
+    },
+    "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/AdminClient.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/AppDelegate.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/ClientsWindowController.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/MenuBarAgentState.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/MenuBarIconAnimator.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/Models.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/PixelWhaleIconRenderer.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/SettingsWindowController.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/SidecarController.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/TextWindowController.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/main.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.product/Objects.LinkFileList"
+    },
+    "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentPackageTests.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentPackageTests.derived/runner.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentPackageTests.build/sources"
+    },
+    "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentPackageTests.product/Objects.LinkFileList" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<link-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/AdminClient.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/AppDelegate.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/ClientsWindowController.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/MenuBarAgentState.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/MenuBarIconAnimator.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/Models.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/PixelWhaleIconRenderer.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/SettingsWindowController.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/SidecarController.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/TextWindowController.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgent.build/main.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentPackageTests.build/runner.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentTests.build/MenuBarAgentStateTests.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentTests.build/SidecarControllerTests.swift.o"
+        }
+      ],
+      "outputFilePath" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentPackageTests.product/Objects.LinkFileList"
+    },
+    "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentTests.build/sources" : {
+      "alwaysOutOfDate" : false,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<sources-file-list>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Tests/LocalCLIAgentTests/MenuBarAgentStateTests.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/bytedance/Apps/localcli/apps/macos/Tests/LocalCLIAgentTests/SidecarControllerTests.swift"
+        }
+      ],
+      "outputFilePath" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/LocalCLIAgentTests.build/sources"
+    },
+    "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt" : {
+      "alwaysOutOfDate" : true,
+      "inputs" : [
+        {
+          "kind" : "virtual",
+          "name" : "<swift-get-version>"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc"
+        }
+      ],
+      "outputFilePath" : "/Users/bytedance/Apps/localcli/apps/macos/.build/arm64-apple-macosx/release/swift-version--58304C5D6DBC2206.txt"
+    }
+  }
+}

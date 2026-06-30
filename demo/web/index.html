@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Local CLI Agent Demo</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="topbar">
+        <div>
+          <h1>Local CLI Agent Demo</h1>
+          <p id="statusText">Not connected</p>
+        </div>
+        <div class="address">
+          <label for="agentBase">Agent</label>
+          <input id="agentBase" value="http://localhost:17624" spellcheck="false">
+          <button id="healthButton">Check</button>
+        </div>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <div class="panelHead">
+            <h2>Pairing</h2>
+            <button id="pairButton">Pair</button>
+          </div>
+          <dl class="facts">
+            <div>
+              <dt>Client</dt>
+              <dd id="clientIdText">None</dd>
+            </div>
+            <div>
+              <dt>Origin</dt>
+              <dd id="originText"></dd>
+            </div>
+          </dl>
+          <button id="forgetButton" class="secondary">Forget Local Credential</button>
+        </article>
+
+        <article class="panel">
+          <div class="panelHead">
+            <h2>Providers</h2>
+            <button id="providersButton">Refresh</button>
+          </div>
+          <div id="providersList" class="providers"></div>
+        </article>
+      </section>
+
+      <section class="workspace">
+        <div class="composer">
+          <div class="toolbar">
+            <label for="providerSelect">Provider</label>
+            <select id="providerSelect"></select>
+            <label class="check">
+              <input id="streamToggle" type="checkbox" checked>
+              Stream
+            </label>
+          </div>
+          <textarea id="messageInput" rows="8" placeholder="Type a complete user message...">Hello from the Local CLI Agent web demo.</textarea>
+          <div class="actions">
+            <button id="sendButton">Send</button>
+            <button id="cancelButton" class="secondary">Cancel</button>
+          </div>
+        </div>
+        <pre id="output" class="output"></pre>
+      </section>
+    </main>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

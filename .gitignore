@@ -1,0 +1,11 @@
+.DS_Store
+node_modules/
+dist/
+build/
+.swiftpm/
+DerivedData/
+*.xcuserstate
+*.log
+coverage/
+local-cli-agent-*.db
+tmp/
