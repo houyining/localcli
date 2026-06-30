@@ -122,26 +122,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func renderMenu(now: Date = Date()) {
         let menu = NSMenu()
+        menu.autoenablesItems = false
         let agentState = menuBarState.currentState(now: now)
-        let title = "Status: \(agentState.displayName)"
-        menu.addItem(NSMenuItem(title: "Local CLI Agent", action: nil, keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: title, action: nil, keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Address: \(status?.address ?? "http://localhost:\(adminPort)")", action: nil, keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Providers: \(status?.providersReady ?? 0)/\(status?.providersTotal ?? 0) ready", action: nil, keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Paired Clients: \(status?.pairedClients ?? 0)", action: nil, keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Active Requests: \(status?.activeRequests ?? 0)", action: nil, keyEquivalent: ""))
+
+        menu.addItem(makeInfoItem(title: "Localcli: \(agentState.displayName)"))
+        menu.addItem(makeInfoItem(title: "Address: \(status?.address ?? "http://localhost:\(adminPort)")"))
+        let activeRequests = status?.activeRequests ?? 0
+        menu.addItem(makeInfoItem(title: "Active Requests: \(activeRequests)"))
         menu.addItem(.separator())
+
+        menu.addItem(NSMenuItem(title: "Providers: \(status?.providersReady ?? 0)/\(status?.providersTotal ?? 0) ready", action: #selector(showProviders), keyEquivalent: "p"))
+        menu.addItem(NSMenuItem(title: "Paired Clients: \(status?.pairedClients ?? 0)", action: #selector(showClients), keyEquivalent: "c"))
+
         menu.addItem(NSMenuItem(title: "Settings", action: #selector(showSettings), keyEquivalent: ","))
-        menu.addItem(NSMenuItem(title: "Providers", action: #selector(showProviders), keyEquivalent: "p"))
-        menu.addItem(NSMenuItem(title: "Paired Clients", action: #selector(showClients), keyEquivalent: "c"))
         menu.addItem(NSMenuItem(title: "Logs", action: #selector(showLogs), keyEquivalent: "l"))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Restart Service", action: #selector(restartService), keyEquivalent: "r"))
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q"))
         for item in menu.items {
-            item.target = self
+            if item.action != nil {
+                item.target = self
+                item.isEnabled = true
+            }
         }
         statusItem?.menu = menu
+    }
+
+    private func makeInfoItem(title: String) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.isEnabled = false
+        return item
     }
 
     private func applyMenuBarIcon(now: Date = Date()) {
