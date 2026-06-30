@@ -1,11 +1,37 @@
 .DS_Store
+
+# Dependencies
 node_modules/
+
+# Build outputs
 dist/
 build/
+.build/
 .swiftpm/
 DerivedData/
+*.xcresult/
+
+# Local tools
+whale-editor/
+
+# Xcode user state
+xcuserdata/
+*.xcuserdatad/
 *.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+# Logs and coverage
 *.log
 coverage/
+
+# Local runtime data
+local-cli-agent.db*
 local-cli-agent-*.db
+*.db-wal
+*.db-shm
+
+# Local env/temp files
+.env
+.env.*
 tmp/
