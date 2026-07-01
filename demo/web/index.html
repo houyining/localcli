@@ -3,68 +3,358 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Local CLI Agent Demo</title>
+    <title>Local CLI Agent Test Console</title>
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
     <main class="shell">
-      <section class="topbar">
+      <header class="topbar">
+        <div class="brand">
+          <h1>Local CLI Agent Test Console</h1>
+          <p id="statusText">Ready</p>
+        </div>
+        <div class="connectGrid">
+          <label>
+            Agent URL
+            <input id="agentBase" value="http://localhost:17624" spellcheck="false">
+          </label>
+          <button id="healthButton">Check /health</button>
+          <label>
+            Admin Token
+            <input id="adminTokenInput" type="password" spellcheck="false" autocomplete="off">
+          </label>
+          <button id="saveAdminTokenButton" class="secondary">Save Token</button>
+          <button id="clearAdminTokenButton" class="secondary">Clear Token</button>
+        </div>
+      </header>
+
+      <section class="statusStrip">
         <div>
-          <h1>Local CLI Agent Demo</h1>
-          <p id="statusText">Not connected</p>
+          <span>Client</span>
+          <strong id="clientIdText">None</strong>
         </div>
-        <div class="address">
-          <label for="agentBase">Agent</label>
-          <input id="agentBase" value="http://localhost:17624" spellcheck="false">
-          <button id="healthButton">Check</button>
+        <div>
+          <span>Origin</span>
+          <strong id="originText"></strong>
+        </div>
+        <div>
+          <span>Session</span>
+          <strong id="sessionIdText">None</strong>
+        </div>
+        <div>
+          <span>Mode</span>
+          <strong id="sessionModeText">None</strong>
+        </div>
+        <div>
+          <span>Native</span>
+          <strong id="nativeStateText">N/A</strong>
+        </div>
+        <div>
+          <span>Messages</span>
+          <strong id="messageCountText">0</strong>
         </div>
       </section>
 
-      <section class="grid">
-        <article class="panel">
-          <div class="panelHead">
-            <h2>Pairing</h2>
-            <button id="pairButton">Pair</button>
-          </div>
-          <dl class="facts">
-            <div>
-              <dt>Client</dt>
-              <dd id="clientIdText">None</dd>
-            </div>
-            <div>
-              <dt>Origin</dt>
-              <dd id="originText"></dd>
-            </div>
-          </dl>
-          <button id="forgetButton" class="secondary">Forget Local Credential</button>
-        </article>
+      <section class="layout">
+        <nav class="navPanel" aria-label="API sections">
+          <button class="navButton active" data-section="health">Health</button>
+          <button class="navButton" data-section="pairing">Pairing</button>
+          <button class="navButton" data-section="providers">Providers</button>
+          <button class="navButton" data-section="chat">Chat</button>
+          <button class="navButton" data-section="sessions">Sessions</button>
+          <button class="navButton" data-section="openai">OpenAI</button>
+          <button class="navButton" data-section="admin">Admin</button>
+        </nav>
 
-        <article class="panel">
-          <div class="panelHead">
-            <h2>Providers</h2>
-            <button id="providersButton">Refresh</button>
-          </div>
-          <div id="providersList" class="providers"></div>
-        </article>
-      </section>
+        <section class="contentPanel">
+          <article class="apiSection active" id="section-health">
+            <div class="sectionHead">
+              <h2>Health</h2>
+              <span>Public endpoint</span>
+            </div>
+            <div class="actionRow">
+              <button id="runHealthButton">GET /health</button>
+            </div>
+          </article>
 
-      <section class="workspace">
-        <div class="composer">
-          <div class="toolbar">
-            <label for="providerSelect">Provider</label>
-            <select id="providerSelect"></select>
-            <label class="check">
-              <input id="streamToggle" type="checkbox" checked>
-              Stream
+          <article class="apiSection" id="section-pairing">
+            <div class="sectionHead">
+              <h2>Pairing</h2>
+              <span>Pair request, status polling, admin approval</span>
+            </div>
+
+            <div class="formGrid two">
+              <label>
+                Client Name
+                <input id="pairClientName" value="Local CLI Agent Test Console">
+              </label>
+              <label>
+                Client Type
+                <select id="pairClientType">
+                  <option value="web-app">web-app</option>
+                  <option value="browser-extension">browser-extension</option>
+                  <option value="desktop-app">desktop-app</option>
+                  <option value="vscode-extension">vscode-extension</option>
+                  <option value="cli-tool">cli-tool</option>
+                  <option value="unknown">unknown</option>
+                </select>
+              </label>
+              <label>
+                Origin
+                <input id="pairOrigin" spellcheck="false">
+              </label>
+              <label>
+                Requested Providers
+                <input id="pairProviders" value="claude,codex,ollama,gemini,fake" spellcheck="false">
+              </label>
+            </div>
+            <div class="checkRow">
+              <label><input id="capChat" type="checkbox" checked> llm.chat</label>
+              <label><input id="capStream" type="checkbox" checked> llm.stream</label>
+              <label><input id="capProviders" type="checkbox" checked> llm.listProviders</label>
+            </div>
+            <div class="actionRow">
+              <button id="pairRequestButton">POST /v1/pair/request</button>
+              <button id="pairStatusButton" class="secondary">GET /v1/pair/status</button>
+              <button id="forgetButton" class="secondary dangerOutline">Forget Local Credential</button>
+            </div>
+
+            <div class="divider"></div>
+            <div class="formGrid two">
+              <label>
+                Pair Request ID
+                <input id="pairRequestId" spellcheck="false">
+              </label>
+              <label>
+                Client Nonce
+                <input id="pairClientNonce" spellcheck="false">
+              </label>
+              <label>
+                Allow Providers
+                <input id="pairAllowProviders" value="claude,codex,ollama,gemini,fake" spellcheck="false">
+              </label>
+              <label>
+                Default Provider
+                <input id="pairDefaultProvider" value="codex" spellcheck="false">
+              </label>
+            </div>
+            <div class="actionRow">
+              <button id="adminPendingButton" class="secondary">GET /admin/status</button>
+              <button id="adminAllowPairButton" class="danger">POST /admin/pairing/{id}/allow</button>
+              <button id="adminDenyPairButton" class="danger">POST /admin/pairing/{id}/deny</button>
+            </div>
+            <div id="pendingPairs" class="listBox"></div>
+          </article>
+
+          <article class="apiSection" id="section-providers">
+            <div class="sectionHead">
+              <h2>Providers</h2>
+              <span>Client and admin provider views</span>
+            </div>
+            <div class="actionRow">
+              <button id="clientProvidersButton">GET /v1/providers</button>
+              <button id="adminProvidersButton" class="secondary">GET /admin/providers</button>
+            </div>
+            <div id="providersList" class="listBox"></div>
+          </article>
+
+          <article class="apiSection" id="section-chat">
+            <div class="sectionHead">
+              <h2>Chat</h2>
+              <span>Stateless chat, session.create, session.id, stream, cancel</span>
+            </div>
+            <div class="formGrid three">
+              <label>
+                Provider
+                <select id="chatProviderSelect"></select>
+              </label>
+              <label>
+                Session Mode
+                <select id="chatSessionBehavior">
+                  <option value="stateless">Stateless</option>
+                  <option value="create" selected>Create New Session</option>
+                  <option value="existing">Use Session ID</option>
+                </select>
+              </label>
+              <label>
+                Native/Local Mode
+                <select id="chatCreateMode">
+                  <option value="auto">auto</option>
+                  <option value="native">native</option>
+                  <option value="local">local</option>
+                </select>
+              </label>
+              <label>
+                Session ID
+                <input id="chatSessionId" spellcheck="false">
+              </label>
+              <label>
+                Working Directory
+                <input id="chatWorkingDirectory" spellcheck="false" placeholder="/absolute/path for no-Origin clients">
+              </label>
+              <label class="inlineCheck">
+                <input id="chatStream" type="checkbox" checked>
+                Stream
+              </label>
+            </div>
+            <label>
+              Messages JSON or plain user text
+              <textarea id="chatMessages" rows="7" spellcheck="false">Hello from the Local CLI Agent API console.</textarea>
             </label>
+            <div class="actionRow">
+              <button id="sendChatButton">POST /v1/chat</button>
+              <button id="cancelButton" class="secondary dangerOutline">POST /v1/requests/{id}/cancel</button>
+              <button id="newSessionButton" class="secondary">Clear Current Session</button>
+            </div>
+            <pre id="chatOutput" class="miniOutput"></pre>
+          </article>
+
+          <article class="apiSection" id="section-sessions">
+            <div class="sectionHead">
+              <h2>Sessions</h2>
+              <span>Explicit session lifecycle API</span>
+            </div>
+            <div class="formGrid three">
+              <label>
+                Provider
+                <select id="sessionProviderSelect"></select>
+              </label>
+              <label>
+                Mode
+                <select id="sessionModeSelect">
+                  <option value="auto">auto</option>
+                  <option value="native">native</option>
+                  <option value="local">local</option>
+                </select>
+              </label>
+              <label>
+                Session ID
+                <input id="sessionIdInput" spellcheck="false">
+              </label>
+              <label>
+                Working Directory
+                <input id="sessionWorkingDirectory" spellcheck="false">
+              </label>
+              <label class="inlineCheck">
+                <input id="sessionChatStream" type="checkbox" checked>
+                Stream session chat
+              </label>
+            </div>
+            <label>
+              Initial Messages JSON
+              <textarea id="sessionCreateMessages" rows="4" spellcheck="false">[]</textarea>
+            </label>
+            <div class="actionRow">
+              <button id="createSessionButton">POST /v1/sessions</button>
+              <button id="listSessionsButton" class="secondary">GET /v1/sessions</button>
+              <button id="getSessionButton" class="secondary">GET /v1/sessions/{id}</button>
+              <button id="deleteSessionButton" class="danger">DELETE /v1/sessions/{id}</button>
+            </div>
+            <label>
+              Session Chat Messages JSON or plain user text
+              <textarea id="sessionChatMessages" rows="5" spellcheck="false">Continue this session.</textarea>
+            </label>
+            <div class="actionRow">
+              <button id="sessionChatButton">POST /v1/sessions/{id}/chat</button>
+            </div>
+            <div id="sessionsList" class="listBox"></div>
+          </article>
+
+          <article class="apiSection" id="section-openai">
+            <div class="sectionHead">
+              <h2>OpenAI-Compatible</h2>
+              <span>Models and chat completions</span>
+            </div>
+            <div class="formGrid two">
+              <label>
+                Model
+                <input id="openAiModel" value="fake:fake-echo" spellcheck="false">
+              </label>
+              <label class="inlineCheck">
+                <input id="openAiStream" type="checkbox" checked>
+                Stream
+              </label>
+            </div>
+            <label>
+              Messages JSON or plain user text
+              <textarea id="openAiMessages" rows="6" spellcheck="false">Hello through the OpenAI-compatible endpoint.</textarea>
+            </label>
+            <div class="actionRow">
+              <button id="openAiModelsButton">GET /openai/v1/models</button>
+              <button id="openAiChatButton">POST /openai/v1/chat/completions</button>
+            </div>
+          </article>
+
+          <article class="apiSection" id="section-admin">
+            <div class="sectionHead">
+              <h2>Admin</h2>
+              <span>Status, settings, diagnostics, clients, logs, events</span>
+            </div>
+            <div class="actionRow">
+              <button id="adminStatusButton">GET /admin/status</button>
+              <button id="adminDiagnosticsButton" class="secondary">GET /admin/diagnostics</button>
+              <button id="adminEventsButton" class="secondary">GET /admin/events</button>
+              <button id="adminEventsStopButton" class="secondary dangerOutline">Stop Events</button>
+            </div>
+
+            <div class="divider"></div>
+            <div class="actionRow">
+              <button id="adminSettingsGetButton">GET /admin/settings</button>
+              <button id="adminSettingsPatchButton" class="danger">PATCH /admin/settings</button>
+            </div>
+            <label>
+              Settings Patch JSON
+              <textarea id="adminSettingsPatch" rows="4" spellcheck="false">{
+  "logsEnabled": true,
+  "logRetentionDays": 7
+}</textarea>
+            </label>
+
+            <div class="divider"></div>
+            <div class="formGrid two">
+              <label>
+                Client ID
+                <input id="adminClientId" spellcheck="false">
+              </label>
+              <label>
+                Log Limit
+                <input id="adminLogLimit" type="number" value="100" min="1" max="500">
+              </label>
+            </div>
+            <label>
+              Client Patch JSON
+              <textarea id="adminClientPatch" rows="5" spellcheck="false">{
+  "allowedProviders": ["fake"],
+  "defaultProvider": "fake",
+  "maxConcurrentRequests": 2
+}</textarea>
+            </label>
+            <div class="actionRow">
+              <button id="adminClientsButton">GET /admin/clients</button>
+              <button id="adminClientPatchButton" class="danger">PATCH /admin/clients/{id}</button>
+              <button id="adminClientDeleteButton" class="danger">DELETE /admin/clients/{id}</button>
+              <button id="adminLogsButton" class="secondary">GET /admin/logs</button>
+              <button id="adminLogsClearButton" class="danger">POST /admin/logs/clear</button>
+            </div>
+            <div id="adminList" class="listBox"></div>
+          </article>
+        </section>
+
+        <aside class="inspector">
+          <div class="inspectorHead">
+            <h2>Result</h2>
+            <div class="actionRow tight">
+              <button id="copyJsonButton" class="secondary">Copy JSON</button>
+              <button id="copyCurlButton" class="secondary">Copy curl</button>
+            </div>
           </div>
-          <textarea id="messageInput" rows="8" placeholder="Type a complete user message...">Hello from the Local CLI Agent web demo.</textarea>
-          <div class="actions">
-            <button id="sendButton">Send</button>
-            <button id="cancelButton" class="secondary">Cancel</button>
+          <pre id="resultOutput" class="resultOutput"></pre>
+          <div class="inspectorHead historyHead">
+            <h2>Request History</h2>
+            <button id="clearHistoryButton" class="secondary dangerOutline">Clear</button>
           </div>
-        </div>
-        <pre id="output" class="output"></pre>
+          <div id="historyList" class="historyList"></div>
+        </aside>
       </section>
     </main>
     <script type="module" src="./app.js"></script>

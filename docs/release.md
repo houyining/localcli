@@ -30,9 +30,17 @@ Create a development `.app` bundle:
 
 The script copies the Swift executable, sidecar TypeScript source, and current Node 22 executable into `dist/Local CLI Agent.app`. The app prefers `Contents/Resources/node/bin/node` when launching the sidecar.
 
+Create a dogfood DMG dry run:
+
+```sh
+npm run release:macos:dry-run
+```
+
+The dry run packages the app, skips codesign/notarization, creates `dist/Local-CLI-Agent-0.1.0.dmg`, and writes a SHA-256 checksum next to it.
+
 ## Production Packaging Work
 
-Before external distribution, consider replacing the development TypeScript sidecar resource with one of:
+Current dogfood builds still run the bundled TypeScript sidecar with Node 22 type stripping. Before external distribution, replace that development resource with one of:
 
 - Node SEA executable built from a JavaScript bundle.
 - Bundled Node runtime plus compiled sidecar JavaScript.
@@ -44,33 +52,8 @@ The public API and Swift-side sidecar launch boundary are already isolated so th
 After producing the final `.app`:
 
 ```sh
-codesign --force --deep --options runtime \
-  --sign "Developer ID Application: TEAM NAME (TEAMID)" \
-  "dist/Local CLI Agent.app"
-```
-
-Create the DMG:
-
-```sh
-hdiutil create -volname "Local CLI Agent" \
-  -srcfolder "dist/Local CLI Agent.app" \
-  -ov -format UDZO "dist/Local-CLI-Agent-0.1.0.dmg"
-```
-
-Notarize:
-
-```sh
-xcrun notarytool submit "dist/Local-CLI-Agent-0.1.0.dmg" \
-  --apple-id "$APPLE_ID" \
-  --team-id "$APPLE_TEAM_ID" \
-  --password "$APPLE_APP_SPECIFIC_PASSWORD" \
-  --wait
-```
-
-Staple:
-
-```sh
-xcrun stapler staple "dist/Local-CLI-Agent-0.1.0.dmg"
+LOCAL_CLI_AGENT_CODESIGN_IDENTITY="Developer ID Application: TEAM NAME (TEAMID)" \
+  scripts/release-macos.sh
 ```
 
 Publish with:

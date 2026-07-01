@@ -1,4 +1,6 @@
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
+import { realpath, stat } from "node:fs/promises";
+import { isAbsolute } from "node:path";
 
 import { hashCredential, randomToken, verifyCredential } from "./crypto.ts";
 import { ProviderExecutionError, ProviderRegistry } from "./providers.ts";
@@ -9,11 +11,18 @@ import {
   type AgentSettings,
   type Capability,
   type ChatMessage,
-  type ChatRequest,
+  type ChatSessionMetadata,
+  type ChatSessionSummary,
+  type DiagnosticsSnapshot,
+  type EffectiveSessionMode,
+  type NativeSessionState,
   type PairRequest,
   type PairingRecord,
   type ProviderId,
   type RequestLogSummary,
+  type SessionChatRequest,
+  type SessionCreateRequest,
+  type SessionMode,
   type StreamEvent,
 } from "./types.ts";
 
@@ -22,6 +31,8 @@ const MAX_TOTAL_CONTENT_CHARS = 100000;
 const PAIR_REQUEST_TTL_MS = 60000;
 const MAX_PENDING_PAIR_REQUESTS = 50;
 const MAX_PENDING_PAIR_REQUESTS_PER_ORIGIN = 5;
+const SESSION_TTL_MS = 30 * 60 * 1000;
+const MAX_SESSIONS_PER_CLIENT = 20;
 
 type ActiveRequest = {
   requestId: string;
@@ -41,7 +52,32 @@ type AdminEvent = {
   payload: unknown;
 };
 
+type PublicPairingRecord = Omit<PairingRecord, "credentialHash">;
+
 type ParseResult<T> = { ok: true; value: T } | { ok: false; code: string; message: string };
+
+type ChatSession = ChatSessionMetadata & {
+  messages: ChatMessage[];
+  expiresAtMs: number;
+};
+
+type ParsedChatSessionSpec =
+  | {
+    kind: "create";
+    mode: SessionMode;
+    workingDirectory?: string;
+  }
+  | {
+    kind: "existing";
+    sessionId: string;
+  };
+
+type ParsedChatRequest = {
+  provider?: ProviderId;
+  stream: boolean;
+  messages: ChatMessage[];
+  session?: ParsedChatSessionSpec;
+};
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -135,34 +171,89 @@ function parseBearer(value: string | string[] | undefined): string | null {
 
 function clientSafeError(error: unknown): { code: string; message: string } {
   if (error instanceof ProviderExecutionError) {
-    return { code: error.code, message: error.message };
+    return { code: error.code, message: publicErrorMessage(error.code) };
   }
   if (error instanceof Error && error.name === "AbortError") {
     return { code: "request_cancelled", message: "Request was cancelled." };
   }
   if (error instanceof Error) {
-    return { code: "internal_error", message: error.message };
+    return { code: "internal_error", message: publicErrorMessage("internal_error") };
   }
-  return { code: "internal_error", message: "Unexpected error." };
+  return { code: "internal_error", message: publicErrorMessage("internal_error") };
+}
+
+function publicErrorMessage(code: string): string {
+  switch (code) {
+    case "invalid_json":
+      return "Request body must be valid JSON.";
+    case "request_too_large":
+      return "Request body is too large.";
+    case "request_cancelled":
+      return "Request was cancelled.";
+    case "request_timeout":
+      return "Request timed out.";
+    case "provider_not_found":
+      return "Provider is not available.";
+    case "provider_not_installed":
+      return "Provider is not installed.";
+    case "provider_not_authenticated":
+      return "Provider is not authenticated.";
+    case "provider_not_ready":
+      return "Provider is not ready.";
+    case "provider_secure_input_unsupported":
+      return "Provider does not support secure non-interactive input.";
+    case "native_session_unsupported":
+      return "Provider does not support stable native sessions.";
+    case "native_session_unavailable":
+      return "Native session mapping is unavailable.";
+    case "working_directory_not_allowed":
+      return "Working directory is only available to no-origin local clients.";
+    case "invalid_working_directory":
+      return "workingDirectory must be an existing absolute directory.";
+    case "session_busy":
+      return "Session already has an active request.";
+    case "provider_error":
+      return "Provider execution failed.";
+    default:
+      return "Internal server error.";
+  }
 }
 
 function pairOriginKey(origin: string | null): string {
   return origin ?? "__no_origin__";
 }
 
+function isLoopbackOrigin(origin: string | null): boolean {
+  if (!origin) {
+    return false;
+  }
+  try {
+    const parsed = new URL(origin);
+    return ["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname);
+  } catch {
+    return false;
+  }
+}
+
 export class AgentServer {
   readonly store: SQLiteStore;
   readonly providers: ProviderRegistry;
   readonly adminToken: string;
-  readonly pairRequestTtlMs: number;
+  pairRequestTtlMs: number;
+  sessionTtlMs: number;
+  maxSessionsPerClient: number;
   settings!: AgentSettings;
   server: http.Server | null = null;
   port = 17624;
   host: "localhost" = "localhost";
   private pairRequests = new Map<string, PairRequest>();
   private pairExpiryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private sessions = new Map<string, ChatSession>();
+  private sessionExpiryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private activeSessionIds = new Set<string>();
   private activeRequests = new Map<string, ActiveRequest>();
   private adminEventClients = new Set<ServerResponse>();
+  private startedAtMs = Date.now();
 
   constructor(options: {
     store: SQLiteStore;
@@ -170,11 +261,15 @@ export class AgentServer {
     adminToken: string;
     settings?: AgentSettings;
     pairRequestTtlMs?: number;
+    sessionTtlMs?: number;
+    maxSessionsPerClient?: number;
   }) {
     this.store = options.store;
     this.providers = options.providers;
     this.adminToken = options.adminToken;
     this.pairRequestTtlMs = options.pairRequestTtlMs ?? PAIR_REQUEST_TTL_MS;
+    this.sessionTtlMs = options.sessionTtlMs ?? SESSION_TTL_MS;
+    this.maxSessionsPerClient = options.maxSessionsPerClient ?? MAX_SESSIONS_PER_CLIENT;
     if (options.settings) {
       this.settings = options.settings;
       this.port = options.settings.port;
@@ -186,6 +281,7 @@ export class AgentServer {
     this.settings ??= await this.store.getSettings();
     this.port = portOverride ?? this.settings.port;
     this.host = this.settings.host;
+    await this.restoreSessions();
 
     this.server = http.createServer((req, res) => {
       this.handle(req, res).catch((error) => {
@@ -222,6 +318,12 @@ export class AgentServer {
       clearTimeout(timer);
     }
     this.pairExpiryTimers.clear();
+    for (const timer of this.sessionExpiryTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.sessionExpiryTimers.clear();
+    this.activeSessionIds.clear();
+    this.sessions.clear();
     for (const client of this.adminEventClients) {
       client.end();
     }
@@ -269,6 +371,11 @@ export class AgentServer {
       return;
     }
 
+    if (pathname.startsWith("/openai/")) {
+      await this.handleOpenAI(req, res, url);
+      return;
+    }
+
     if (req.method === "GET" && pathname === "/v1/providers") {
       const auth = await this.authenticate(req, res, "llm.listProviders");
       if (!auth) {
@@ -278,6 +385,33 @@ export class AgentServer {
       const providers = await this.providers.listStatuses();
       await this.touchClient(auth.record.clientId, false);
       this.sendJson(res, 200, { providers });
+      return;
+    }
+
+    if (req.method === "GET" && pathname === "/v1/sessions") {
+      await this.handleListSessions(req, res);
+      return;
+    }
+
+    if (req.method === "POST" && pathname === "/v1/sessions") {
+      await this.handleCreateSession(req, res);
+      return;
+    }
+
+    const sessionChatMatch = pathname.match(/^\/v1\/sessions\/([^/]+)\/chat$/);
+    if (req.method === "POST" && sessionChatMatch) {
+      await this.handleSessionChat(req, res, decodeURIComponent(sessionChatMatch[1]));
+      return;
+    }
+
+    const sessionMatch = pathname.match(/^\/v1\/sessions\/([^/]+)$/);
+    if (req.method === "GET" && sessionMatch) {
+      await this.handleGetSession(req, res, decodeURIComponent(sessionMatch[1]));
+      return;
+    }
+
+    if (req.method === "DELETE" && sessionMatch) {
+      await this.handleDeleteSession(req, res, decodeURIComponent(sessionMatch[1]));
       return;
     }
 
@@ -425,6 +559,7 @@ export class AgentServer {
     res: ServerResponse,
     url: URL,
   ): Promise<void> {
+    this.setAdminCors(req, res);
     if (!this.authenticateAdmin(req)) {
       this.sendError(req, res, 401, "admin_unauthorized", "Admin token is invalid.");
       return;
@@ -521,14 +656,21 @@ export class AgentServer {
       return;
     }
 
+    if (req.method === "GET" && pathname === "/admin/diagnostics") {
+      await this.handleAdminDiagnostics(res);
+      return;
+    }
+
     if (req.method === "GET" && pathname === "/admin/clients") {
-      this.sendJson(res, 200, { clients: await this.store.listPairings() });
+      const clients = (await this.store.listPairings()).map((record) => this.publicPairingRecord(record));
+      this.sendJson(res, 200, { clients });
       return;
     }
 
     const clientMatch = pathname.match(/^\/admin\/clients\/([^/]+)$/);
     if (clientMatch && req.method === "DELETE") {
       await this.store.deletePairing(clientMatch[1]);
+      await this.deleteSessionsForClient(clientMatch[1]);
       this.emitAdminEvent("client.removed", { clientId: clientMatch[1] });
       this.sendJson(res, 200, { ok: true });
       return;
@@ -595,7 +737,7 @@ export class AgentServer {
         return;
       }
       this.emitAdminEvent("client.updated", { clientId: updated.clientId });
-      this.sendJson(res, 200, { client: updated });
+      this.sendJson(res, 200, { client: this.publicPairingRecord(updated) });
       return;
     }
 
@@ -711,6 +853,811 @@ export class AgentServer {
     this.sendJson(res, 200, { ok: true, status: "allowed", clientId });
   }
 
+  private async handleAdminDiagnostics(res: ServerResponse): Promise<void> {
+    this.sweepExpiredPairRequests();
+    const providers = await this.providers.diagnostics({ force: true });
+    const clients = await this.store.listPairings();
+    const logs = await this.store.listLogs(50);
+    const recentErrors = logs
+      .filter((log) => log.status !== "success" || log.errorCode)
+      .slice(0, 10)
+      .map((log) => ({
+        requestId: log.requestId,
+        provider: log.provider,
+        status: log.status,
+        errorCode: log.errorCode,
+        endedAt: log.endedAt,
+      }));
+
+    const snapshot: DiagnosticsSnapshot = {
+      ok: true,
+      service: "local-cli-agent",
+      version: "0.1.0",
+      status: "running",
+      address: `http://${this.host}:${this.port}`,
+      uptimeMs: Date.now() - this.startedAtMs,
+      activeRequests: this.activeRequests.size,
+      pairedClients: clients.length,
+      pendingPairRequests: [...this.pairRequests.values()].filter((request) => request.status === "pending").length,
+      restartCount: Number(process.env.LOCAL_CLI_AGENT_RESTART_COUNT ?? "0") || 0,
+      runtime: {
+        nodeVersion: process.version,
+        execPath: this.redactPath(process.execPath),
+        platform: process.platform,
+        arch: process.arch,
+        pathEntries: this.redactPathEntries(process.env.PATH ?? ""),
+      },
+      providers: providers.map((provider) => ({
+        ...provider,
+        commandPath: provider.commandPath ? this.redactPath(provider.commandPath) : provider.commandPath,
+      })),
+      recentErrors,
+    };
+    this.sendJson(res, 200, snapshot);
+  }
+
+  private redactPathEntries(pathValue: string): string[] {
+    return pathValue
+      .split(":")
+      .filter(Boolean)
+      .slice(0, 40)
+      .map((entry) => this.redactPath(entry));
+  }
+
+  private redactPath(value: string): string {
+    const home = process.env.HOME;
+    let redacted = value;
+    if (home && redacted.startsWith(home)) {
+      redacted = `~${redacted.slice(home.length)}`;
+    }
+    return redacted.replace(/^\/Users\/[^/]+/, "~");
+  }
+
+  private async handleListSessions(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const auth = await this.authenticate(req, res, "llm.chat");
+    if (!auth) {
+      return;
+    }
+    this.setCors(req, res, "sensitive", auth.record);
+    this.expireSessions();
+    const sessions = [...this.sessions.values()]
+      .filter((session) => session.clientId === auth.record.clientId)
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+      .map((session) => this.publicSession(session));
+    await this.touchClient(auth.record.clientId, false);
+    this.sendJson(res, 200, { sessions });
+  }
+
+  private async handleCreateSession(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const auth = await this.authenticate(req, res, "llm.chat");
+    if (!auth) {
+      return;
+    }
+    this.setCors(req, res, "sensitive", auth.record);
+
+    const parsed = this.validateSessionCreateRequest(await this.readJsonOptional(req), auth.record);
+    if (!parsed.ok) {
+      this.sendError(req, res, this.statusForError(parsed.code), parsed.code, parsed.message);
+      return;
+    }
+    const created = await this.createSessionForClient(auth.record, parsed.body);
+    if (!created.ok) {
+      this.sendError(req, res, this.statusForError(created.code), created.code, created.message);
+      return;
+    }
+    await this.touchClient(auth.record.clientId, false);
+    this.sendJson(res, 201, { ok: true, session: this.publicSession(created.value) });
+  }
+
+  private async handleGetSession(req: IncomingMessage, res: ServerResponse, sessionId: string): Promise<void> {
+    const auth = await this.authenticate(req, res, "llm.chat");
+    if (!auth) {
+      return;
+    }
+    this.setCors(req, res, "sensitive", auth.record);
+    const session = this.getClientSession(sessionId, auth.record);
+    if (!session) {
+      this.sendError(req, res, 404, "session_not_found", "Session was not found.");
+      return;
+    }
+    await this.touchClient(auth.record.clientId, false);
+    this.sendJson(res, 200, { session: this.publicSession(session) });
+  }
+
+  private async handleDeleteSession(req: IncomingMessage, res: ServerResponse, sessionId: string): Promise<void> {
+    const auth = await this.authenticate(req, res, "llm.chat");
+    if (!auth) {
+      return;
+    }
+    this.setCors(req, res, "sensitive", auth.record);
+    const session = this.getClientSession(sessionId, auth.record);
+    if (!session) {
+      this.sendError(req, res, 404, "session_not_found", "Session was not found.");
+      return;
+    }
+    if (this.activeSessionIds.has(session.sessionId)) {
+      this.sendError(req, res, 429, "session_busy", "Session already has an active request.");
+      return;
+    }
+    await this.deleteSession(session.sessionId);
+    await this.touchClient(auth.record.clientId, false);
+    this.sendJson(res, 200, { ok: true });
+  }
+
+  private async createSessionForClient(
+    record: PairingRecord,
+    body: {
+      provider: ProviderId;
+      mode: SessionMode;
+      workingDirectory?: string;
+      messages: ChatMessage[];
+    },
+  ): Promise<ParseResult<ChatSession>> {
+    if (!record.allowedProviders.includes(body.provider)) {
+      return { ok: false, code: "provider_not_allowed", message: "Provider is not allowed for this client." };
+    }
+    const modeResult = this.resolveSessionMode(body.mode, body.provider);
+    if (!modeResult.ok) {
+      return modeResult;
+    }
+    if (modeResult.value === "native" && body.messages.length > 0) {
+      return {
+        ok: false,
+        code: "invalid_request",
+        message: "Native sessions do not accept initial messages; send the first turn via session chat.",
+      };
+    }
+    const workingDirectoryResult = await this.resolveSessionWorkingDirectory(body.workingDirectory, record);
+    if (!workingDirectoryResult.ok) {
+      return workingDirectoryResult;
+    }
+
+    this.expireSessions();
+    const clientSessions = [...this.sessions.values()].filter((session) => session.clientId === record.clientId);
+    if (clientSessions.length >= this.maxSessionsPerClient) {
+      return { ok: false, code: "too_many_sessions", message: "Client exceeded the active session limit." };
+    }
+
+    const now = nowIso();
+    const expiresAtMs = Date.now() + this.sessionTtlMs;
+    const messages = modeResult.value === "local" ? this.trimSessionMessages(body.messages) : [];
+    const nativeProviderSessionId = modeResult.value === "native"
+      ? this.providers.createNativeSession(body.provider)
+      : null;
+    const nativeSessionState: NativeSessionState | null = modeResult.value === "native"
+      ? nativeProviderSessionId ? "ready" : "pending"
+      : null;
+    const session: ChatSession = {
+      sessionId: randomToken("session"),
+      clientId: record.clientId,
+      provider: body.provider,
+      mode: modeResult.value,
+      workingDirectory: workingDirectoryResult.value,
+      nativeSessionState,
+      nativeProviderSessionId,
+      createdAt: now,
+      updatedAt: now,
+      expiresAt: new Date(expiresAtMs).toISOString(),
+      expiresAtMs,
+      messageCount: messages.length,
+      messages,
+    };
+    this.sessions.set(session.sessionId, session);
+    this.scheduleSessionExpiry(session);
+    await this.store.upsertSession(this.sessionMetadata(session));
+    return { ok: true, value: session };
+  }
+
+  private async handleSessionChat(
+    req: IncomingMessage,
+    res: ServerResponse,
+    sessionId: string,
+  ): Promise<void> {
+    const auth = await this.authenticate(req, res, "llm.chat");
+    if (!auth) {
+      return;
+    }
+    this.setCors(req, res, "sensitive", auth.record);
+
+    const session = this.getClientSession(sessionId, auth.record);
+    if (!session) {
+      this.sendError(req, res, 404, "session_not_found", "Session was not found.");
+      return;
+    }
+
+    const parsed = this.validateSessionChatRequest(await this.readJson(req));
+    if (!parsed.ok) {
+      this.sendError(req, res, this.statusForError(parsed.code), parsed.code, parsed.message);
+      return;
+    }
+
+    await this.runSessionChat(req, res, auth.record, session, parsed.body);
+  }
+
+  private async runSessionChat(
+    req: IncomingMessage,
+    res: ServerResponse,
+    record: PairingRecord,
+    session: ChatSession,
+    body: Required<SessionChatRequest>,
+  ): Promise<void> {
+    if (body.stream && !record.capabilities.includes("llm.stream")) {
+      this.sendError(req, res, 403, "missing_capability", "Client is not allowed to stream.");
+      return;
+    }
+    if (!record.allowedProviders.includes(session.provider)) {
+      this.sendError(req, res, 403, "provider_not_allowed", "Provider is not allowed for this client.");
+      return;
+    }
+    if (session.mode === "native" && session.nativeSessionState === "unavailable") {
+      this.sendError(
+        req,
+        res,
+        this.statusForError("native_session_unavailable"),
+        "native_session_unavailable",
+        "Native session mapping is unavailable.",
+      );
+      return;
+    }
+
+    const clientActive = [...this.activeRequests.values()].filter(
+      (active) => active.clientId === record.clientId,
+    ).length;
+    if (clientActive >= record.maxConcurrentRequests) {
+      this.sendError(req, res, 429, "concurrency_limit", "Client exceeded concurrent request limit.");
+      return;
+    }
+    if (this.activeSessionIds.has(session.sessionId)) {
+      this.sendError(req, res, 429, "session_busy", "Session already has an active request.");
+      return;
+    }
+
+    const requestMessages = session.mode === "native"
+      ? body.messages
+      : this.trimSessionMessages(
+        [...session.messages, ...body.messages],
+        body.messages.length,
+      );
+    this.touchSession(session);
+    await this.store.upsertSession(this.sessionMetadata(session));
+    const requestId = randomToken("req");
+    const startedAt = nowIso();
+    const startedMs = Date.now();
+    const inputChars = requestMessages.reduce((sum, message) => sum + message.content.length, 0);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort(new Error("timeout"));
+    }, record.maxRequestDurationMs);
+
+    let outputChars = 0;
+    let status: RequestLogSummary["status"] = "success";
+    let errorCode: string | null = null;
+    let completed = false;
+    const active: ActiveRequest = {
+      requestId,
+      clientId: record.clientId,
+      provider: session.provider,
+      startedAt,
+      inputChars,
+      cancel: () => {
+        if (!controller.signal.aborted) {
+          controller.abort(new Error("cancelled"));
+        }
+      },
+    };
+    const onClientClose = (): void => {
+      if (!completed) {
+        active.cancel();
+      }
+    };
+    this.activeRequests.set(requestId, active);
+    this.activeSessionIds.add(session.sessionId);
+    res.on("close", onClientClose);
+    this.emitAdminEvent("request.started", { requestId, clientId: record.clientId, provider: session.provider });
+
+    try {
+      const spawned = session.mode === "native"
+        ? await this.providers.spawnNativeSessionChat(session.provider, requestMessages, {
+          requestId,
+          signal: controller.signal,
+          workingDirectory: session.workingDirectory,
+        }, {
+          nativeProviderSessionId: session.nativeProviderSessionId,
+          stream: body.stream,
+        })
+        : await this.providers.spawnChat(session.provider, requestMessages, {
+          requestId,
+          signal: controller.signal,
+          workingDirectory: session.workingDirectory,
+        });
+      const { adapter, handle } = spawned;
+      const nativeProviderSessionId = "nativeProviderSessionId" in spawned
+        ? spawned.nativeProviderSessionId
+        : null;
+
+      active.cancel = () => {
+        if (!controller.signal.aborted) {
+          controller.abort(new Error("cancelled"));
+        }
+        handle.cancel();
+      };
+      if (controller.signal.aborted) {
+        handle.cancel();
+      }
+
+      const chunks: string[] = [];
+      if (body.stream) {
+        const done = await this.respondStream(res, adapter.parseOutput(handle), handle.done, {
+          requestId,
+          provider: session.provider,
+          start: {
+            sessionId: session.sessionId,
+            session: this.publicSession(session),
+          },
+          onChunk: (chunk) => {
+            chunks.push(chunk);
+            outputChars += chunk.length;
+          },
+          cancel: active.cancel,
+          beforeDone: async (finished) => {
+            if (finished.finishReason === "stop") {
+              if (session.mode === "native") {
+                await this.updateNativeSessionAfterStop(session, body.messages, nativeProviderSessionId);
+                this.providers.recordNativeSessionSuccess(session.provider);
+              } else {
+                if (this.sessions.has(session.sessionId)) {
+                  this.updateSessionMessages(session, requestMessages, chunks.join(""));
+                  await this.store.upsertSession(this.sessionMetadata(session));
+                }
+                this.providers.recordSuccess(session.provider);
+              }
+            }
+            return {
+              sessionId: session.sessionId,
+              session: this.publicSession(session),
+            };
+          },
+        });
+        if (done.finishReason === "cancelled") {
+          status = "cancelled";
+        } else if (done.finishReason === "timeout") {
+          status = "timeout";
+        }
+        completed = true;
+      } else {
+        for await (const chunk of adapter.parseOutput(handle)) {
+          chunks.push(chunk);
+          outputChars += chunk.length;
+        }
+        const done = await handle.done;
+        if (done.finishReason === "cancelled") {
+          status = "cancelled";
+        } else if (done.finishReason === "timeout") {
+          status = "timeout";
+        }
+        completed = true;
+        if (done.finishReason === "stop") {
+          if (session.mode === "native") {
+            await this.updateNativeSessionAfterStop(session, body.messages, nativeProviderSessionId);
+            this.providers.recordNativeSessionSuccess(session.provider);
+          } else {
+            if (this.sessions.has(session.sessionId)) {
+              this.updateSessionMessages(session, requestMessages, chunks.join(""));
+              await this.store.upsertSession(this.sessionMetadata(session));
+            }
+            this.providers.recordSuccess(session.provider);
+          }
+        }
+        this.sendJson(res, 200, {
+          requestId,
+          sessionId: session.sessionId,
+          provider: session.provider,
+          content: chunks.join(""),
+          finishReason: done.finishReason,
+          session: this.publicSession(session),
+        });
+      }
+    } catch (error) {
+      const safe = clientSafeError(error);
+      errorCode = safe.code;
+      this.providers.recordFailure(session.provider, safe.code, safe.message);
+      if (
+        session.mode === "native"
+        && (safe.code === "native_session_unsupported" || safe.code === "native_session_unavailable")
+      ) {
+        session.nativeSessionState = "unavailable";
+        session.nativeProviderSessionId = null;
+        this.touchSession(session);
+        if (this.sessions.has(session.sessionId)) {
+          await this.store.upsertSession(this.sessionMetadata(session));
+        }
+      }
+      status = safe.code === "request_timeout" || controller.signal.reason?.message === "timeout"
+        ? "timeout"
+        : controller.signal.aborted
+          ? "cancelled"
+          : "error";
+
+      if (!res.headersSent) {
+        this.sendError(req, res, this.statusForError(safe.code), safe.code, safe.message);
+      } else if (!res.writableEnded) {
+        res.write(sseData({ type: "error", message: safe.message, code: safe.code }));
+        res.end();
+      }
+    } finally {
+      clearTimeout(timeout);
+      completed = true;
+      res.off("close", onClientClose);
+      this.activeRequests.delete(requestId);
+      this.activeSessionIds.delete(session.sessionId);
+      this.expireSessions();
+      await this.touchClient(record.clientId, true);
+      await this.writeRequestLog({
+        requestId,
+        clientId: record.clientId,
+        clientName: record.clientName,
+        provider: session.provider,
+        startedAt,
+        endedAt: nowIso(),
+        durationMs: Date.now() - startedMs,
+        status,
+        inputChars,
+        outputChars,
+        errorCode,
+      });
+      this.emitAdminEvent("request.finished", { requestId, status, errorCode });
+    }
+  }
+
+  private async handleOpenAI(
+    req: IncomingMessage,
+    res: ServerResponse,
+    url: URL,
+  ): Promise<void> {
+    const pathname = url.pathname;
+
+    if (req.method === "GET" && pathname === "/openai/v1/models") {
+      const auth = await this.authenticate(req, res, "llm.listProviders");
+      if (!auth) {
+        return;
+      }
+      this.setCors(req, res, "sensitive", auth.record);
+      const statuses = await this.providers.listStatuses();
+      const models = statuses
+        .filter((status) => status.ready && auth.record.allowedProviders.includes(status.id))
+        .flatMap((status) => {
+          const providerModels = status.models?.length
+            ? status.models.map((model) => `${status.id}:${model}`)
+            : [status.id];
+          return providerModels.map((id) => ({
+            id,
+            object: "model",
+            created: 0,
+            owned_by: "local-cli-agent",
+          }));
+        });
+      await this.touchClient(auth.record.clientId, false);
+      this.sendJson(res, 200, { object: "list", data: models });
+      return;
+    }
+
+    if (req.method === "POST" && pathname === "/openai/v1/chat/completions") {
+      await this.handleOpenAIChat(req, res);
+      return;
+    }
+
+    this.sendError(req, res, 404, "not_found", "OpenAI-compatible route not found.");
+  }
+
+  private async handleOpenAIChat(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    const auth = await this.authenticate(req, res, "llm.chat");
+    if (!auth) {
+      return;
+    }
+    this.setCors(req, res, "sensitive", auth.record);
+
+    const parsed = this.validateOpenAIChatRequest(await this.readJson(req), auth.record);
+    if (!parsed.ok) {
+      this.sendOpenAIError(res, this.statusForError(parsed.code), parsed.code, parsed.message);
+      return;
+    }
+    if (parsed.body.stream && !auth.record.capabilities.includes("llm.stream")) {
+      this.sendOpenAIError(res, 403, "missing_capability", "Client is not allowed to stream.");
+      return;
+    }
+    if (!auth.record.allowedProviders.includes(parsed.provider)) {
+      this.sendOpenAIError(res, 403, "provider_not_allowed", "Provider is not allowed for this client.");
+      return;
+    }
+
+    const clientActive = [...this.activeRequests.values()].filter(
+      (active) => active.clientId === auth.record.clientId,
+    ).length;
+    if (clientActive >= auth.record.maxConcurrentRequests) {
+      this.sendOpenAIError(res, 429, "concurrency_limit", "Client exceeded concurrent request limit.");
+      return;
+    }
+
+    const requestId = randomToken("req");
+    const completionId = `chatcmpl_${requestId}`;
+    const startedAt = nowIso();
+    const startedMs = Date.now();
+    const created = Math.floor(startedMs / 1000);
+    const inputChars = parsed.body.messages.reduce((sum, message) => sum + message.content.length, 0);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort(new Error("timeout"));
+    }, auth.record.maxRequestDurationMs);
+
+    let outputChars = 0;
+    let status: RequestLogSummary["status"] = "success";
+    let errorCode: string | null = null;
+    let completed = false;
+    const active: ActiveRequest = {
+      requestId,
+      clientId: auth.record.clientId,
+      provider: parsed.provider,
+      startedAt,
+      inputChars,
+      cancel: () => {
+        if (!controller.signal.aborted) {
+          controller.abort(new Error("cancelled"));
+        }
+      },
+    };
+    const onClientClose = (): void => {
+      if (!completed) {
+        active.cancel();
+      }
+    };
+    this.activeRequests.set(requestId, active);
+    res.on("close", onClientClose);
+    this.emitAdminEvent("request.started", { requestId, clientId: auth.record.clientId, provider: parsed.provider });
+
+    try {
+      const { adapter, handle } = await this.providers.spawnChat(parsed.provider, parsed.body.messages, {
+        requestId,
+        signal: controller.signal,
+      }, { model: parsed.model });
+
+      active.cancel = () => {
+        if (!controller.signal.aborted) {
+          controller.abort(new Error("cancelled"));
+        }
+        handle.cancel();
+      };
+      if (controller.signal.aborted) {
+        handle.cancel();
+      }
+
+      if (parsed.body.stream) {
+        const done = await this.respondOpenAIStream(res, adapter.parseOutput(handle), handle.done, {
+          id: completionId,
+          created,
+          model: parsed.body.model,
+          onChunk: (chunk) => {
+            outputChars += chunk.length;
+          },
+        });
+        status = done.finishReason === "cancelled"
+          ? "cancelled"
+          : done.finishReason === "timeout"
+            ? "timeout"
+            : "success";
+        if (done.finishReason === "stop") {
+          this.providers.recordSuccess(parsed.provider);
+        }
+        completed = true;
+      } else {
+        const chunks: string[] = [];
+        for await (const chunk of adapter.parseOutput(handle)) {
+          chunks.push(chunk);
+          outputChars += chunk.length;
+        }
+        const done = await handle.done;
+        status = done.finishReason === "cancelled"
+          ? "cancelled"
+          : done.finishReason === "timeout"
+            ? "timeout"
+            : "success";
+        if (done.finishReason === "stop") {
+          this.providers.recordSuccess(parsed.provider);
+        }
+        completed = true;
+        this.sendJson(res, 200, {
+          id: completionId,
+          object: "chat.completion",
+          created,
+          model: parsed.body.model,
+          choices: [{
+            index: 0,
+            message: { role: "assistant", content: chunks.join("") },
+            finish_reason: this.openAIFinishReason(done.finishReason),
+          }],
+          usage: {
+            prompt_chars: inputChars,
+            completion_chars: outputChars,
+            total_chars: inputChars + outputChars,
+          },
+        });
+      }
+    } catch (error) {
+      const safe = clientSafeError(error);
+      errorCode = safe.code;
+      this.providers.recordFailure(parsed.provider, safe.code, safe.message);
+      status = safe.code === "request_timeout" || controller.signal.reason?.message === "timeout"
+        ? "timeout"
+        : controller.signal.aborted
+          ? "cancelled"
+          : "error";
+
+      if (!res.headersSent) {
+        this.sendOpenAIError(res, this.statusForError(safe.code), safe.code, safe.message);
+      } else if (!res.writableEnded) {
+        res.write(`data: ${JSON.stringify({ error: this.openAIErrorBody(safe.code, safe.message).error })}\n\n`);
+        res.write("data: [DONE]\n\n");
+        res.end();
+      }
+    } finally {
+      clearTimeout(timeout);
+      completed = true;
+      res.off("close", onClientClose);
+      this.activeRequests.delete(requestId);
+      await this.touchClient(auth.record.clientId, true);
+      await this.writeRequestLog({
+        requestId,
+        clientId: auth.record.clientId,
+        clientName: auth.record.clientName,
+        provider: parsed.provider,
+        startedAt,
+        endedAt: nowIso(),
+        durationMs: Date.now() - startedMs,
+        status,
+        inputChars,
+        outputChars,
+        errorCode,
+      });
+      this.emitAdminEvent("request.finished", { requestId, status, errorCode });
+    }
+  }
+
+  private validateOpenAIChatRequest(
+    value: unknown,
+    record: PairingRecord,
+  ): {
+    ok: true;
+    provider: ProviderId;
+    model?: string;
+    body: { model: string; stream: boolean; messages: ChatMessage[] };
+  } | { ok: false; code: string; message: string } {
+    if (!isObject(value)) {
+      return { ok: false, code: "invalid_request", message: "Request body must be a JSON object." };
+    }
+    const modelId = asString(value.model);
+    if (!modelId) {
+      return { ok: false, code: "invalid_model", message: "model is required." };
+    }
+    const parsedModel = this.parseOpenAIModel(modelId, record.defaultProvider);
+    if (!parsedModel) {
+      return { ok: false, code: "invalid_model", message: "model is invalid." };
+    }
+    if (!Array.isArray(value.messages) || value.messages.length < 1 || value.messages.length > 50) {
+      return { ok: false, code: "invalid_messages", message: "messages must contain 1-50 items." };
+    }
+
+    const messages: ChatMessage[] = [];
+    let totalChars = 0;
+    for (const item of value.messages) {
+      if (!isObject(item) || !["system", "user", "assistant"].includes(String(item.role))) {
+        return { ok: false, code: "invalid_message_role", message: "role must be system, user, or assistant." };
+      }
+      const content = typeof item.content === "string" ? item.content : null;
+      if (content === null) {
+        return { ok: false, code: "invalid_message_content", message: "message content must be a string." };
+      }
+      totalChars += content.length;
+      messages.push({ role: item.role as ChatMessage["role"], content });
+    }
+    if (totalChars > MAX_TOTAL_CONTENT_CHARS) {
+      return { ok: false, code: "request_too_large", message: "Total message content is too large." };
+    }
+
+    return {
+      ok: true,
+      provider: parsedModel.provider,
+      model: parsedModel.model,
+      body: {
+        model: modelId,
+        stream: typeof value.stream === "boolean" ? value.stream : false,
+        messages,
+      },
+    };
+  }
+
+  private parseOpenAIModel(modelId: string, defaultProvider: ProviderId): { provider: ProviderId; model?: string } | null {
+    if (isProviderId(modelId)) {
+      return { provider: modelId };
+    }
+    const separator = modelId.indexOf(":");
+    if (separator < 0) {
+      return isProviderId(defaultProvider) ? { provider: defaultProvider, model: modelId } : null;
+    }
+    const provider = modelId.slice(0, separator);
+    const model = modelId.slice(separator + 1);
+    if (!isProviderId(provider) || !model) {
+      return null;
+    }
+    return { provider, model };
+  }
+
+  private async respondOpenAIStream(
+    res: ServerResponse,
+    output: AsyncIterable<string>,
+    done: Promise<{ finishReason: string }>,
+    options: {
+      id: string;
+      created: number;
+      model: string;
+      onChunk: (chunk: string) => void;
+    },
+  ): Promise<{ finishReason: string }> {
+    res.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    });
+    const base = {
+      id: options.id,
+      object: "chat.completion.chunk",
+      created: options.created,
+      model: options.model,
+    };
+    res.write(`data: ${JSON.stringify({
+      ...base,
+      choices: [{ index: 0, delta: { role: "assistant" }, finish_reason: null }],
+    })}\n\n`);
+
+    for await (const chunk of output) {
+      options.onChunk(chunk);
+      res.write(`data: ${JSON.stringify({
+        ...base,
+        choices: [{ index: 0, delta: { content: chunk }, finish_reason: null }],
+      })}\n\n`);
+    }
+    const finished = await done;
+    res.write(`data: ${JSON.stringify({
+      ...base,
+      choices: [{ index: 0, delta: {}, finish_reason: this.openAIFinishReason(finished.finishReason) }],
+    })}\n\n`);
+    res.write("data: [DONE]\n\n");
+    res.end();
+    return finished;
+  }
+
+  private openAIFinishReason(finishReason: string): string {
+    if (finishReason === "cancelled") {
+      return "stop";
+    }
+    if (finishReason === "timeout") {
+      return "length";
+    }
+    return "stop";
+  }
+
+  private openAIErrorBody(code: string, message: string): { error: { message: string; type: string; code: string } } {
+    return {
+      error: {
+        message,
+        type: "local_cli_agent_error",
+        code,
+      },
+    };
+  }
+
+  private sendOpenAIError(res: ServerResponse, statusCode: number, code: string, message: string): void {
+    this.sendJson(res, statusCode, this.openAIErrorBody(code, message));
+  }
+
   private async handleChat(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const auth = await this.authenticate(req, res, "llm.chat");
     if (!auth) {
@@ -718,7 +1665,7 @@ export class AgentServer {
     }
     this.setCors(req, res, "sensitive", auth.record);
 
-    const parsed = this.validateChatRequest(await this.readJson(req), auth.record);
+    const parsed = this.validateChatRequest(await this.readJson(req));
     if (!parsed.ok) {
       this.sendError(req, res, this.statusForError(parsed.code), parsed.code, parsed.message);
       return;
@@ -726,6 +1673,49 @@ export class AgentServer {
 
     if (parsed.body.stream && !auth.record.capabilities.includes("llm.stream")) {
       this.sendError(req, res, 403, "missing_capability", "Client is not allowed to stream.");
+      return;
+    }
+
+    if (parsed.body.session) {
+      if (parsed.body.session.kind === "existing") {
+        const session = this.getClientSession(parsed.body.session.sessionId, auth.record);
+        if (!session) {
+          this.sendError(req, res, 404, "session_not_found", "Session was not found.");
+          return;
+        }
+        if (parsed.body.provider !== undefined && parsed.body.provider !== session.provider) {
+          this.sendError(req, res, 400, "invalid_request", "provider must match the existing session provider.");
+          return;
+        }
+        await this.runSessionChat(req, res, auth.record, session, {
+          stream: parsed.body.stream,
+          messages: parsed.body.messages,
+        });
+        return;
+      }
+
+      const provider = parsed.body.provider ?? auth.record.defaultProvider;
+      const clientActive = [...this.activeRequests.values()].filter(
+        (active) => active.clientId === auth.record.clientId,
+      ).length;
+      if (clientActive >= auth.record.maxConcurrentRequests) {
+        this.sendError(req, res, 429, "concurrency_limit", "Client exceeded concurrent request limit.");
+        return;
+      }
+      const created = await this.createSessionForClient(auth.record, {
+        provider,
+        mode: parsed.body.session.mode,
+        workingDirectory: parsed.body.session.workingDirectory,
+        messages: [],
+      });
+      if (!created.ok) {
+        this.sendError(req, res, this.statusForError(created.code), created.code, created.message);
+        return;
+      }
+      await this.runSessionChat(req, res, auth.record, created.value, {
+        stream: parsed.body.stream,
+        messages: parsed.body.messages,
+      });
       return;
     }
 
@@ -807,6 +1797,9 @@ export class AgentServer {
         } else if (done.finishReason === "timeout") {
           status = "timeout";
         }
+        if (done.finishReason === "stop") {
+          this.providers.recordSuccess(provider);
+        }
         completed = true;
       } else {
         const chunks: string[] = [];
@@ -820,6 +1813,9 @@ export class AgentServer {
         } else if (done.finishReason === "timeout") {
           status = "timeout";
         }
+        if (done.finishReason === "stop") {
+          this.providers.recordSuccess(provider);
+        }
         completed = true;
         this.sendJson(res, 200, {
           requestId,
@@ -831,6 +1827,7 @@ export class AgentServer {
     } catch (error) {
       const safe = clientSafeError(error);
       errorCode = safe.code;
+      this.providers.recordFailure(provider, safe.code, safe.message);
       status = safe.code === "request_timeout" || controller.signal.reason?.message === "timeout"
         ? "timeout"
         : controller.signal.aborted
@@ -873,8 +1870,10 @@ export class AgentServer {
     options: {
       requestId: string;
       provider: ProviderId;
+      start?: Partial<StreamEvent>;
       onChunk: (chunk: string) => void;
       cancel: () => void;
+      beforeDone?: (finished: { finishReason: string }) => Promise<Partial<StreamEvent>> | Partial<StreamEvent>;
     },
   ): Promise<{ finishReason: string }> {
     res.writeHead(200, {
@@ -882,14 +1881,24 @@ export class AgentServer {
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
     });
-    res.write(sseData({ type: "start", requestId: options.requestId, provider: options.provider }));
+    res.write(sseData({
+      type: "start",
+      requestId: options.requestId,
+      provider: options.provider,
+      ...options.start,
+    }));
 
     for await (const chunk of output) {
       options.onChunk(chunk);
       res.write(sseData({ type: "delta", content: chunk }));
     }
     const finished = await done;
-    res.write(sseData({ type: "done", finishReason: finished.finishReason as never }));
+    const doneExtra = options.beforeDone ? await options.beforeDone(finished) : {};
+    res.write(sseData({
+      type: "done",
+      finishReason: finished.finishReason as never,
+      ...doneExtra,
+    }));
     res.end();
     return finished;
   }
@@ -912,20 +1921,147 @@ export class AgentServer {
     this.sendJson(res, 200, { ok: true });
   }
 
-  private validateChatRequest(
+  private validateSessionCreateRequest(
     value: unknown,
     record: PairingRecord,
-  ): { ok: true; body: Required<ChatRequest> } | { ok: false; code: string; message: string } {
+  ): {
+    ok: true;
+    body: {
+      provider: ProviderId;
+      mode: SessionMode;
+      workingDirectory?: string;
+      messages: ChatMessage[];
+    };
+  } | { ok: false; code: string; message: string } {
     if (!isObject(value)) {
       return { ok: false, code: "invalid_request", message: "Request body must be a JSON object." };
     }
-    if (!Array.isArray(value.messages) || value.messages.length < 1 || value.messages.length > 50) {
-      return { ok: false, code: "invalid_messages", message: "messages must contain 1-50 items." };
+    const provider = value.provider === undefined
+      ? record.defaultProvider
+      : isProviderId(value.provider)
+        ? value.provider
+        : null;
+    if (!provider) {
+      return { ok: false, code: "invalid_provider", message: "provider is invalid." };
+    }
+    const mode = value.mode === undefined
+      ? "auto"
+      : ["auto", "native", "local"].includes(String(value.mode))
+        ? value.mode as SessionMode
+        : null;
+    if (!mode) {
+      return { ok: false, code: "invalid_request", message: "mode must be auto, native, or local." };
+    }
+    if (value.workingDirectory !== undefined && typeof value.workingDirectory !== "string") {
+      return { ok: false, code: "invalid_working_directory", message: "workingDirectory must be a string." };
+    }
+
+    const parsedMessages = this.parseMessages(value.messages === undefined ? [] : value.messages, 0);
+    if (!parsedMessages.ok) {
+      return parsedMessages;
+    }
+    return {
+      ok: true,
+      body: {
+        provider,
+        mode,
+        workingDirectory: value.workingDirectory,
+        messages: parsedMessages.value,
+      },
+    };
+  }
+
+  private validateSessionChatRequest(
+    value: unknown,
+  ): { ok: true; body: Required<SessionChatRequest> } | { ok: false; code: string; message: string } {
+    if (!isObject(value)) {
+      return { ok: false, code: "invalid_request", message: "Request body must be a JSON object." };
+    }
+    if (value.provider !== undefined) {
+      return { ok: false, code: "invalid_request", message: "Session provider is fixed at creation time." };
+    }
+
+    const parsedMessages = this.parseMessages(value.messages, 1);
+    if (!parsedMessages.ok) {
+      return parsedMessages;
+    }
+    return {
+      ok: true,
+      body: {
+        stream: typeof value.stream === "boolean" ? value.stream : false,
+        messages: parsedMessages.value,
+      },
+    };
+  }
+
+  private resolveSessionMode(
+    requestedMode: SessionMode,
+    provider: ProviderId,
+  ): ParseResult<EffectiveSessionMode> {
+    const supportsNative = this.providers.supportsNativeSessions(provider);
+    if (requestedMode === "native" && !supportsNative) {
+      return {
+        ok: false,
+        code: "native_session_unsupported",
+        message: "Provider does not support stable native sessions.",
+      };
+    }
+    return {
+      ok: true,
+      value: requestedMode === "local" ? "local" : supportsNative ? "native" : "local",
+    };
+  }
+
+  private async resolveSessionWorkingDirectory(
+    requestedWorkingDirectory: string | undefined,
+    record: PairingRecord,
+  ): Promise<ParseResult<string>> {
+    if (requestedWorkingDirectory !== undefined && record.origin !== null) {
+      return {
+        ok: false,
+        code: "working_directory_not_allowed",
+        message: "workingDirectory is only available to no-origin local clients.",
+      };
+    }
+
+    const candidate = requestedWorkingDirectory ?? process.cwd();
+    if (!isAbsolute(candidate)) {
+      return {
+        ok: false,
+        code: "invalid_working_directory",
+        message: "workingDirectory must be an absolute path.",
+      };
+    }
+
+    try {
+      const resolved = await realpath(candidate);
+      const info = await stat(resolved);
+      if (!info.isDirectory()) {
+        return {
+          ok: false,
+          code: "invalid_working_directory",
+          message: "workingDirectory must be an existing directory.",
+        };
+      }
+      return { ok: true, value: resolved };
+    } catch {
+      return {
+        ok: false,
+        code: "invalid_working_directory",
+        message: "workingDirectory must be an existing absolute directory.",
+      };
+    }
+  }
+
+  private parseMessages(value: unknown, minCount: number): ParseResult<ChatMessage[]> {
+    if (!Array.isArray(value) || value.length < minCount || value.length > 50) {
+      const minText = minCount === 0 ? "0" : String(minCount);
+      return { ok: false, code: "invalid_messages", message: `messages must contain ${minText}-50 items.` };
     }
 
     const messages: ChatMessage[] = [];
     let totalChars = 0;
-    for (const item of value.messages) {
+    for (const item of value) {
       if (!isObject(item) || !["system", "user", "assistant"].includes(String(item.role))) {
         return { ok: false, code: "invalid_message_role", message: "role must be system, user, or assistant." };
       }
@@ -939,13 +2075,36 @@ export class AgentServer {
       return { ok: false, code: "request_too_large", message: "Total message content is too large." };
     }
 
+    return { ok: true, value: messages };
+  }
+
+  private validateChatRequest(
+    value: unknown,
+  ): { ok: true; body: ParsedChatRequest } | { ok: false; code: string; message: string } {
+    if (!isObject(value)) {
+      return { ok: false, code: "invalid_request", message: "Request body must be a JSON object." };
+    }
+    const parsedMessages = this.parseMessages(value.messages, 1);
+    if (!parsedMessages.ok) {
+      return parsedMessages;
+    }
+
     const provider = value.provider === undefined
-      ? record.defaultProvider
+      ? undefined
       : isProviderId(value.provider)
         ? value.provider
         : null;
-    if (!provider) {
+    if (provider === null) {
       return { ok: false, code: "invalid_provider", message: "provider is invalid." };
+    }
+
+    let session: ParsedChatSessionSpec | undefined;
+    if (value.session !== undefined) {
+      const parsedSession = this.parseChatSessionSpec(value.session);
+      if (!parsedSession.ok) {
+        return parsedSession;
+      }
+      session = parsedSession.value;
     }
 
     return {
@@ -953,7 +2112,62 @@ export class AgentServer {
       body: {
         provider,
         stream: typeof value.stream === "boolean" ? value.stream : false,
-        messages,
+        messages: parsedMessages.value,
+        session,
+      },
+    };
+  }
+
+  private parseChatSessionSpec(value: unknown): ParseResult<ParsedChatSessionSpec> {
+    if (!isObject(value)) {
+      return { ok: false, code: "invalid_request", message: "session must be a JSON object." };
+    }
+
+    const wantsCreate = value.create === true;
+    const hasCreate = value.create !== undefined;
+    const sessionId = value.id;
+    const hasId = sessionId !== undefined;
+    if (hasCreate && typeof value.create !== "boolean") {
+      return { ok: false, code: "invalid_request", message: "session.create must be a boolean." };
+    }
+    if (wantsCreate && hasId) {
+      return { ok: false, code: "invalid_request", message: "session.create and session.id are mutually exclusive." };
+    }
+    if (!wantsCreate && !hasId) {
+      return { ok: false, code: "invalid_request", message: "session must include create: true or id." };
+    }
+
+    if (hasId) {
+      if (typeof sessionId !== "string" || sessionId.length === 0) {
+        return { ok: false, code: "invalid_request", message: "session.id must be a non-empty string." };
+      }
+      if (value.mode !== undefined || value.workingDirectory !== undefined) {
+        return {
+          ok: false,
+          code: "invalid_request",
+          message: "session.mode and session.workingDirectory are only valid with session.create.",
+        };
+      }
+      return { ok: true, value: { kind: "existing", sessionId } };
+    }
+
+    const mode = value.mode === undefined
+      ? "auto"
+      : ["auto", "native", "local"].includes(String(value.mode))
+        ? value.mode as SessionMode
+        : null;
+    if (!mode) {
+      return { ok: false, code: "invalid_request", message: "session.mode must be auto, native, or local." };
+    }
+    if (value.workingDirectory !== undefined && typeof value.workingDirectory !== "string") {
+      return { ok: false, code: "invalid_working_directory", message: "session.workingDirectory must be a string." };
+    }
+    return {
+      ok: true,
+      value: {
+        kind: "create",
+        mode,
+        workingDirectory: value.workingDirectory,
       },
     };
   }
@@ -1080,6 +2294,219 @@ export class AgentServer {
     return publicRequest;
   }
 
+  private publicPairingRecord(record: PairingRecord): PublicPairingRecord {
+    const { credentialHash: _credentialHash, ...publicRecord } = record;
+    return publicRecord;
+  }
+
+  private publicSession(session: ChatSession): ChatSessionSummary {
+    return {
+      sessionId: session.sessionId,
+      clientId: session.clientId,
+      provider: session.provider,
+      mode: session.mode,
+      workingDirectory: session.workingDirectory,
+      nativeSessionState: session.nativeSessionState,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+      expiresAt: session.expiresAt,
+      messageCount: session.messageCount,
+    };
+  }
+
+  private sessionMetadata(session: ChatSession): ChatSessionMetadata {
+    return {
+      sessionId: session.sessionId,
+      clientId: session.clientId,
+      provider: session.provider,
+      mode: session.mode,
+      workingDirectory: session.workingDirectory,
+      nativeSessionState: session.nativeSessionState,
+      nativeProviderSessionId: session.nativeProviderSessionId,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+      expiresAt: session.expiresAt,
+      messageCount: session.messageCount,
+    };
+  }
+
+  private async restoreSessions(): Promise<void> {
+    await this.store.deleteExpiredSessions(nowIso());
+    for (const timer of this.sessionExpiryTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.sessionExpiryTimers.clear();
+    this.sessions.clear();
+
+    const clientIds = new Set((await this.store.listPairings()).map((record) => record.clientId));
+    for (const metadata of await this.store.listSessions()) {
+      if (!clientIds.has(metadata.clientId)) {
+        await this.store.deleteSession(metadata.sessionId);
+        continue;
+      }
+      const expiresAtMs = Date.parse(metadata.expiresAt);
+      if (!Number.isFinite(expiresAtMs) || expiresAtMs <= Date.now()) {
+        await this.store.deleteSession(metadata.sessionId);
+        continue;
+      }
+      const restoredMetadata: ChatSessionMetadata = metadata.mode === "local"
+        ? {
+          ...metadata,
+          messageCount: 0,
+          nativeSessionState: null,
+          nativeProviderSessionId: null,
+        }
+        : metadata;
+      const messages: ChatMessage[] = [];
+      const session: ChatSession = {
+        ...restoredMetadata,
+        messages,
+        expiresAtMs,
+      };
+      this.sessions.set(session.sessionId, session);
+      this.scheduleSessionExpiry(session);
+      if (metadata.mode === "local" && metadata.messageCount !== 0) {
+        await this.store.upsertSession(this.sessionMetadata(session));
+      }
+    }
+  }
+
+  private getClientSession(sessionId: string, record: PairingRecord): ChatSession | null {
+    this.expireSessions();
+    const session = this.sessions.get(sessionId);
+    if (!session || session.clientId !== record.clientId) {
+      return null;
+    }
+    return session;
+  }
+
+  private updateSessionMessages(session: ChatSession, requestMessages: ChatMessage[], assistantContent: string): void {
+    session.messages = this.trimSessionMessages(
+      [...requestMessages, { role: "assistant", content: assistantContent }],
+      1,
+    );
+    session.messageCount = session.messages.length;
+    this.touchSession(session);
+  }
+
+  private async updateNativeSessionAfterStop(
+    session: ChatSession,
+    turnMessages: ChatMessage[],
+    nativeProviderSessionId: Promise<string | null> | null,
+  ): Promise<void> {
+    const providerSessionId = nativeProviderSessionId ? await nativeProviderSessionId : session.nativeProviderSessionId;
+    if (!providerSessionId) {
+      session.nativeProviderSessionId = null;
+      session.nativeSessionState = "unavailable";
+      this.touchSession(session);
+      if (this.sessions.has(session.sessionId)) {
+        await this.store.upsertSession(this.sessionMetadata(session));
+      }
+      throw new ProviderExecutionError(
+        "native_session_unsupported",
+        "Provider did not report a resumable native session id.",
+      );
+    }
+
+    session.nativeProviderSessionId = providerSessionId;
+    session.nativeSessionState = "ready";
+    session.messageCount += turnMessages.length + 1;
+    this.touchSession(session);
+    if (this.sessions.has(session.sessionId)) {
+      await this.store.upsertSession(this.sessionMetadata(session));
+    }
+  }
+
+  private touchSession(session: ChatSession): void {
+    const nowMs = Date.now();
+    session.updatedAt = new Date(nowMs).toISOString();
+    session.expiresAtMs = nowMs + this.sessionTtlMs;
+    session.expiresAt = new Date(session.expiresAtMs).toISOString();
+    this.scheduleSessionExpiry(session);
+  }
+
+  private scheduleSessionExpiry(session: ChatSession): void {
+    const existing = this.sessionExpiryTimers.get(session.sessionId);
+    if (existing) {
+      clearTimeout(existing);
+    }
+    const timer = setTimeout(() => {
+      if (!this.activeSessionIds.has(session.sessionId)) {
+        this.deleteSessionBestEffort(session.sessionId);
+      }
+    }, Math.max(0, session.expiresAtMs - Date.now()));
+    timer.unref?.();
+    this.sessionExpiryTimers.set(session.sessionId, timer);
+  }
+
+  private deleteSessionLocal(sessionId: string): void {
+    const timer = this.sessionExpiryTimers.get(sessionId);
+    if (timer) {
+      clearTimeout(timer);
+      this.sessionExpiryTimers.delete(sessionId);
+    }
+    this.sessions.delete(sessionId);
+  }
+
+  private async deleteSession(sessionId: string): Promise<void> {
+    this.deleteSessionLocal(sessionId);
+    await this.store.deleteSession(sessionId);
+  }
+
+  private deleteSessionBestEffort(sessionId: string): void {
+    this.deleteSessionLocal(sessionId);
+    void this.store.deleteSession(sessionId).catch(() => undefined);
+  }
+
+  private async deleteSessionsForClient(clientId: string): Promise<void> {
+    const sessionIds: string[] = [];
+    for (const session of [...this.sessions.values()]) {
+      if (session.clientId === clientId) {
+        this.deleteSessionLocal(session.sessionId);
+        sessionIds.push(session.sessionId);
+      }
+    }
+    await Promise.all(sessionIds.map((sessionId) => this.store.deleteSession(sessionId)));
+  }
+
+  private expireSessions(): void {
+    const nowMs = Date.now();
+    for (const session of this.sessions.values()) {
+      if (session.expiresAtMs <= nowMs && !this.activeSessionIds.has(session.sessionId)) {
+        this.deleteSessionBestEffort(session.sessionId);
+      }
+    }
+  }
+
+  private trimSessionMessages(messages: ChatMessage[], protectedTailCount = 0): ChatMessage[] {
+    const trimmed = [...messages];
+    while (
+      trimmed.length > 0
+      && (trimmed.length > 50 || this.totalMessageChars(trimmed) > MAX_TOTAL_CONTENT_CHARS)
+    ) {
+      const protectedStart = Math.max(0, trimmed.length - protectedTailCount);
+      let removeIndex = -1;
+      for (let index = 0; index < protectedStart; index += 1) {
+        if (!(index === 0 && trimmed[index].role === "system")) {
+          removeIndex = index;
+          break;
+        }
+      }
+      if (removeIndex < 0 && protectedStart > 0) {
+        removeIndex = 0;
+      }
+      if (removeIndex < 0) {
+        break;
+      }
+      trimmed.splice(removeIndex, 1);
+    }
+    return trimmed;
+  }
+
+  private totalMessageChars(messages: ChatMessage[]): number {
+    return messages.reduce((sum, message) => sum + message.content.length, 0);
+  }
+
   private async readJson(req: IncomingMessage): Promise<unknown> {
     const chunks: Buffer[] = [];
     let total = 0;
@@ -1102,9 +2529,6 @@ export class AgentServer {
   }
 
   private async readJsonOptional(req: IncomingMessage): Promise<unknown> {
-    if (Number(req.headers["content-length"] ?? "0") === 0) {
-      return {};
-    }
     return this.readJson(req);
   }
 
@@ -1112,19 +2536,32 @@ export class AgentServer {
     switch (code) {
       case "provider_not_found":
       case "provider_not_installed":
+      case "provider_not_authenticated":
       case "provider_not_ready":
+      case "provider_secure_input_unsupported":
+      case "native_session_unsupported":
+      case "native_session_unavailable":
       case "invalid_json":
       case "invalid_messages":
       case "invalid_message_role":
       case "invalid_message_content":
       case "invalid_provider":
+      case "invalid_model":
+      case "invalid_working_directory":
       case "invalid_request":
         return 400;
+      case "provider_not_allowed":
+      case "working_directory_not_allowed":
+        return 403;
+      case "session_not_found":
+        return 404;
       case "request_too_large":
         return 413;
       case "concurrency_limit":
       case "pairing_rate_limited":
       case "too_many_pair_requests":
+      case "too_many_sessions":
+      case "session_busy":
         return 429;
       default:
         return 500;
@@ -1140,6 +2577,8 @@ export class AgentServer {
       this.setCors(req, res, "public");
     } else if (pathname.startsWith("/v1/pair/")) {
       this.setCors(req, res, "pair");
+    } else if (pathname.startsWith("/admin/")) {
+      this.setAdminCors(req, res);
     } else {
       const origin = asString(req.headers.origin);
       if (origin && await this.store.hasPairingOrigin(origin)) {
@@ -1173,6 +2612,14 @@ export class AgentServer {
       return;
     }
     if (kind === "sensitive" && origin && record?.origin === origin) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Vary", "Origin");
+    }
+  }
+
+  private setAdminCors(req: IncomingMessage, res: ServerResponse): void {
+    const origin = asString(req.headers.origin);
+    if (isLoopbackOrigin(origin)) {
       res.setHeader("Access-Control-Allow-Origin", origin);
       res.setHeader("Vary", "Origin");
     }

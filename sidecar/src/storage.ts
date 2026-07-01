@@ -5,7 +5,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
-import type { AgentSettings, PairingRecord, RequestLogSummary } from "./types.ts";
+import type { AgentSettings, ChatSessionMetadata, PairingRecord, RequestLogSummary } from "./types.ts";
 
 const execFileAsync = promisify(execFile);
 
@@ -68,6 +68,15 @@ export class SQLiteStore {
         provider TEXT NOT NULL,
         status TEXT NOT NULL,
         json TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS sessions (
+        session_id TEXT PRIMARY KEY,
+        client_id TEXT NOT NULL,
+        provider TEXT NOT NULL,
+        mode TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
       );
     `);
 
@@ -144,7 +153,10 @@ export class SQLiteStore {
   }
 
   async deletePairing(clientId: string): Promise<boolean> {
-    await this.exec(`DELETE FROM pairings WHERE client_id = ${sqlString(clientId)};`);
+    await this.exec(`
+      DELETE FROM pairings WHERE client_id = ${sqlString(clientId)};
+      DELETE FROM sessions WHERE client_id = ${sqlString(clientId)};
+    `);
     return true;
   }
 
@@ -164,6 +176,8 @@ export class SQLiteStore {
 
       await this.rawExec(`
         DELETE FROM pairings
+        WHERE client_id IN (${duplicateClientIds.map(sqlString).join(", ")});
+        DELETE FROM sessions
         WHERE client_id IN (${duplicateClientIds.map(sqlString).join(", ")});
       `);
       return duplicateClientIds.length;
@@ -195,9 +209,38 @@ export class SQLiteStore {
       await this.rawExec(`
         DELETE FROM pairings
         WHERE client_id IN (${duplicateClientIds.map(sqlString).join(", ")});
+        DELETE FROM sessions
+        WHERE client_id IN (${duplicateClientIds.map(sqlString).join(", ")});
       `);
       return duplicateClientIds.length;
     });
+  }
+
+  async upsertSession(session: ChatSessionMetadata): Promise<void> {
+    await this.exec(this.upsertSessionSql(session));
+  }
+
+  async getSession(sessionId: string): Promise<ChatSessionMetadata | null> {
+    const rows = await this.query<{ json: string }>(`
+      SELECT json FROM sessions WHERE session_id = ${sqlString(sessionId)} LIMIT 1;
+    `);
+    return rows.length === 0 ? null : JSON.parse(rows[0].json);
+  }
+
+  async listSessions(clientId?: string): Promise<ChatSessionMetadata[]> {
+    const where = clientId ? `WHERE client_id = ${sqlString(clientId)}` : "";
+    const rows = await this.query<{ json: string }>(
+      `SELECT json FROM sessions ${where} ORDER BY updated_at DESC;`,
+    );
+    return rows.map((row) => JSON.parse(row.json));
+  }
+
+  async deleteSession(sessionId: string): Promise<void> {
+    await this.exec(`DELETE FROM sessions WHERE session_id = ${sqlString(sessionId)};`);
+  }
+
+  async deleteExpiredSessions(nowIso: string): Promise<void> {
+    await this.exec(`DELETE FROM sessions WHERE expires_at <= ${sqlString(nowIso)};`);
   }
 
   async appendLog(summary: RequestLogSummary, retentionDays: number): Promise<void> {
@@ -240,13 +283,13 @@ export class SQLiteStore {
   }
 
   private async rawExec(sql: string): Promise<void> {
-    await execFileAsync("sqlite3", ["-cmd", "PRAGMA busy_timeout=5000;", this.dbPath, sql], {
+    await execFileAsync("sqlite3", ["-cmd", ".timeout 5000", this.dbPath, sql], {
       maxBuffer: 1024 * 1024 * 8,
     });
   }
 
   private async rawQuery<T>(sql: string): Promise<T[]> {
-    const { stdout } = await execFileAsync("sqlite3", ["-json", this.dbPath, sql], {
+    const { stdout } = await execFileAsync("sqlite3", ["-cmd", ".timeout 5000", "-json", this.dbPath, sql], {
       maxBuffer: 1024 * 1024 * 8,
     });
     const trimmed = stdout.trim();
@@ -267,6 +310,29 @@ export class SQLiteStore {
       ON CONFLICT(client_id) DO UPDATE SET
         origin = excluded.origin,
         credential_hash = excluded.credential_hash,
+        json = excluded.json,
+        updated_at = excluded.updated_at;
+    `;
+  }
+
+  private upsertSessionSql(session: ChatSessionMetadata): string {
+    const now = new Date().toISOString();
+    return `
+      INSERT INTO sessions (session_id, client_id, provider, mode, expires_at, json, updated_at)
+      VALUES (
+        ${sqlString(session.sessionId)},
+        ${sqlString(session.clientId)},
+        ${sqlString(session.provider)},
+        ${sqlString(session.mode)},
+        ${sqlString(session.expiresAt)},
+        ${jsonString(session)},
+        ${sqlString(now)}
+      )
+      ON CONFLICT(session_id) DO UPDATE SET
+        client_id = excluded.client_id,
+        provider = excluded.provider,
+        mode = excluded.mode,
+        expires_at = excluded.expires_at,
         json = excluded.json,
         updated_at = excluded.updated_at;
     `;

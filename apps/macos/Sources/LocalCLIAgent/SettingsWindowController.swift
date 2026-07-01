@@ -6,6 +6,7 @@ final class SettingsWindowController: NSWindowController {
     private let getStartAtLogin: () -> Bool
     private let setStartAtLogin: (Bool) throws -> Void
     private let onSaved: (AgentSettings) -> Void
+    private var currentSettings: AgentSettings
 
     private let portField = NSTextField()
     private let retentionField = NSTextField()
@@ -24,6 +25,7 @@ final class SettingsWindowController: NSWindowController {
         self.getStartAtLogin = getStartAtLogin
         self.setStartAtLogin = setStartAtLogin
         self.onSaved = onSaved
+        self.currentSettings = settings
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: 250),
@@ -110,16 +112,28 @@ final class SettingsWindowController: NSWindowController {
         Task {
             do {
                 let startAtLogin = startAtLoginButton.state == .on
-                try setStartAtLogin(startAtLogin)
                 let response = try await adminClient.updateSettings(
                     port: port,
                     logRetentionDays: retention,
                     logsEnabled: logsEnabledButton.state == .on,
                     startAtLogin: startAtLogin
                 )
+                do {
+                    try setStartAtLogin(startAtLogin)
+                } catch {
+                    let currentStartAtLogin = getStartAtLogin()
+                    _ = try? await adminClient.updateSettings(
+                        port: currentSettings.port,
+                        logRetentionDays: currentSettings.logRetentionDays,
+                        logsEnabled: currentSettings.logsEnabled,
+                        startAtLogin: currentStartAtLogin
+                    )
+                    throw error
+                }
                 statusLabel.stringValue = response.restartRequired == true
                     ? "Saved. Restart service for the port change to take effect."
                     : "Saved."
+                currentSettings = response.settings
                 onSaved(response.settings)
             } catch {
                 statusLabel.stringValue = error.localizedDescription

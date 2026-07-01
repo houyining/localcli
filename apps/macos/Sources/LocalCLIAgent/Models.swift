@@ -27,6 +27,7 @@ struct ProviderStatus: Decodable {
     let name: String
     let installed: Bool
     let ready: Bool
+    let reason: String?
     let version: String?
     let models: [String]?
     let message: String?

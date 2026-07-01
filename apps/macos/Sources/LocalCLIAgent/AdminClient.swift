@@ -5,11 +5,16 @@ final class AdminClient {
     private let baseURL: URL
     private let adminToken: String
     private let session: URLSession
+    private var eventsTask: Task<Void, Never>?
 
     init(port: Int = 17624, adminToken: String, session: URLSession = .shared) {
         self.baseURL = URL(string: "http://127.0.0.1:\(port)")!
         self.adminToken = adminToken
         self.session = session
+    }
+
+    deinit {
+        eventsTask?.cancel()
     }
 
     func status() async throws -> AdminStatus {
@@ -29,6 +34,15 @@ final class AdminClient {
     func logs() async throws -> [RequestLogSummary] {
         let response: LogsResponse = try await get("/admin/logs?limit=100")
         return response.logs
+    }
+
+    func diagnosticsReport() async throws -> String {
+        let request = makeRequest(path: "/admin/diagnostics")
+        let (data, response) = try await session.data(for: request)
+        try validate(response: response, data: data)
+        let object = try JSONSerialization.jsonObject(with: data)
+        let pretty = try JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys])
+        return String(data: pretty, encoding: .utf8) ?? String(data: data, encoding: .utf8) ?? "{}"
     }
 
     func settings() async throws -> AgentSettings {
@@ -88,27 +102,53 @@ final class AdminClient {
     }
 
     func startEvents(onEvent: @escaping @MainActor (_ type: String, _ payload: [String: Any]) -> Void) {
-        let request = makeRequest(path: "/admin/events")
-        Task { [session] in
-            do {
-                let (bytes, _) = try await session.bytes(for: request)
-                for try await line in bytes.lines {
-                    guard line.hasPrefix("data:") else { continue }
-                    let json = String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces)
-                    guard
-                        let data = json.data(using: .utf8),
-                        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                        let type = object["type"] as? String
-                    else {
-                        continue
+        stopEvents()
+
+        let baseURL = baseURL
+        let adminToken = adminToken
+        let session = session
+        eventsTask = Task { @MainActor [baseURL, adminToken, session] in
+            var retryDelayNanoseconds: UInt64 = 500_000_000
+            while !Task.isCancelled {
+                do {
+                    var request = URLRequest(url: URL(string: "/admin/events", relativeTo: baseURL)!)
+                    request.setValue(adminToken, forHTTPHeaderField: "X-Local-Agent-Admin-Token")
+                    let (bytes, response) = try await session.bytes(for: request)
+                    try Self.validateEventStreamResponse(response)
+                    retryDelayNanoseconds = 500_000_000
+
+                    for try await line in bytes.lines {
+                        if Task.isCancelled {
+                            return
+                        }
+                        guard line.hasPrefix("data:") else { continue }
+                        let json = String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+                        guard
+                            let data = json.data(using: .utf8),
+                            let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                            let type = object["type"] as? String
+                        else {
+                            continue
+                        }
+                        let payload = object["payload"] as? [String: Any] ?? [:]
+                        onEvent(type, payload)
                     }
-                    let payload = object["payload"] as? [String: Any] ?? [:]
-                    onEvent(type, payload)
+                } catch is CancellationError {
+                    return
+                } catch {
+                    if Task.isCancelled {
+                        return
+                    }
+                    try? await Task.sleep(nanoseconds: retryDelayNanoseconds)
+                    retryDelayNanoseconds = min(retryDelayNanoseconds * 2, 5_000_000_000)
                 }
-            } catch {
-                // The owner restarts the stream when the sidecar restarts.
             }
         }
+    }
+
+    func stopEvents() {
+        eventsTask?.cancel()
+        eventsTask = nil
     }
 
     private func get<T: Decodable>(_ path: String) async throws -> T {
@@ -149,6 +189,15 @@ final class AdminClient {
             let message = String(data: data, encoding: .utf8) ?? "HTTP \(http.statusCode)"
             throw NSError(domain: "LocalCLIAgent.AdminClient", code: http.statusCode, userInfo: [
                 NSLocalizedDescriptionKey: message
+            ])
+        }
+    }
+
+    private static func validateEventStreamResponse(_ response: URLResponse) throws {
+        guard let http = response as? HTTPURLResponse else { return }
+        guard (200..<300).contains(http.statusCode) else {
+            throw NSError(domain: "LocalCLIAgent.AdminClient", code: http.statusCode, userInfo: [
+                NSLocalizedDescriptionKey: "Event stream failed with HTTP \(http.statusCode)."
             ])
         }
     }

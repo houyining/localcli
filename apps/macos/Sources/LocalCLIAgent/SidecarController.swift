@@ -2,7 +2,9 @@ import Foundation
 
 final class SidecarController {
     private(set) var adminToken = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+    var launchRestartCount = 0
     private var process: Process?
+    private var outputPipe: Pipe?
     private static let systemProviderPathDefaults = [
         "/opt/homebrew/bin",
         "/opt/homebrew/sbin",
@@ -16,6 +18,72 @@ final class SidecarController {
     private struct NodeLaunch {
         let executableURL: URL
         let argumentPrefix: [String]
+    }
+
+    private final class StartupMonitor: @unchecked Sendable {
+        private let semaphore = DispatchSemaphore(value: 0)
+        private let lock = NSLock()
+        private var buffer = Data()
+        private var result: Result<Void, Error>?
+
+        func append(_ data: Data) {
+            var parsedResults: [Result<Void, Error>] = []
+            lock.lock()
+            buffer.append(data)
+            while let newlineRange = buffer.range(of: Data([0x0A])) {
+                let line = buffer.subdata(in: buffer.startIndex..<newlineRange.lowerBound)
+                buffer.removeSubrange(buffer.startIndex..<newlineRange.upperBound)
+                if let result = parseLine(line) {
+                    parsedResults.append(result)
+                }
+            }
+            lock.unlock()
+            for result in parsedResults {
+                complete(result)
+            }
+        }
+
+        func complete(_ nextResult: Result<Void, Error>) {
+            lock.lock()
+            if result == nil {
+                result = nextResult
+                semaphore.signal()
+            }
+            lock.unlock()
+        }
+
+        func wait(timeout: TimeInterval) -> Result<Void, Error>? {
+            _ = semaphore.wait(timeout: .now() + timeout)
+            lock.lock()
+            defer { lock.unlock() }
+            return result
+        }
+
+        private func parseLine(_ data: Data) -> Result<Void, Error>? {
+            guard
+                let line = String(data: data, encoding: .utf8)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines),
+                !line.isEmpty,
+                line.first == "{",
+                let jsonData = line.data(using: .utf8),
+                let object = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
+                let event = object["event"] as? String
+            else {
+                return nil
+            }
+
+            if event == "started" {
+                return .success(())
+            } else if event == "failed_to_start" {
+                let message = object["message"] as? String ?? "Sidecar failed to start."
+                let code = object["code"] as? String
+                let description = code.map { "\(message) (\($0))" } ?? message
+                return .failure(NSError(domain: "LocalCLIAgent.Sidecar", code: 3, userInfo: [
+                    NSLocalizedDescriptionKey: description
+                ]))
+            }
+            return nil
+        }
     }
 
     var isRunning: Bool {
@@ -44,13 +112,41 @@ final class SidecarController {
         var environment = ProcessInfo.processInfo.environment
         environment["PATH"] = Self.mergedProviderPath(existingPath: environment["PATH"])
         environment["LOCAL_CLI_AGENT_ENABLE_FAKE_PROVIDER"] = "0"
+        environment["LOCAL_CLI_AGENT_RESTART_COUNT"] = String(launchRestartCount)
         process.environment = environment
 
+        let startupMonitor = StartupMonitor()
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = pipe
+        pipe.fileHandleForReading.readabilityHandler = { handle in
+            let data = handle.availableData
+            if !data.isEmpty {
+                startupMonitor.append(data)
+            }
+        }
+        process.terminationHandler = { process in
+            startupMonitor.complete(.failure(NSError(domain: "LocalCLIAgent.Sidecar", code: 4, userInfo: [
+                NSLocalizedDescriptionKey: "Sidecar exited before reporting readiness. Exit code: \(process.terminationStatus)."
+            ])))
+        }
+
         try process.run()
         self.process = process
+        self.outputPipe = pipe
+
+        switch startupMonitor.wait(timeout: 3.0) {
+        case .success:
+            return
+        case .failure(let error):
+            cleanupAfterFailedStart(process: process, pipe: pipe)
+            throw error
+        case nil:
+            cleanupAfterFailedStart(process: process, pipe: pipe)
+            throw NSError(domain: "LocalCLIAgent.Sidecar", code: 5, userInfo: [
+                NSLocalizedDescriptionKey: "Timed out waiting for the sidecar to report readiness."
+            ])
+        }
     }
 
     func stop() {
@@ -67,7 +163,23 @@ final class SidecarController {
                 ])
             }
         }
+        outputPipe?.fileHandleForReading.readabilityHandler = nil
+        outputPipe = nil
         self.process = nil
+    }
+
+    private func cleanupAfterFailedStart(process: Process, pipe: Pipe) {
+        pipe.fileHandleForReading.readabilityHandler = nil
+        if process.isRunning {
+            process.terminate()
+            _ = Self.waitUntilProcessExits(process, timeout: 1.0)
+        }
+        if self.process === process {
+            self.process = nil
+        }
+        if outputPipe === pipe {
+            outputPipe = nil
+        }
     }
 
     static func waitUntilProcessExits(_ process: Process, timeout: TimeInterval) -> Bool {

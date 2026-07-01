@@ -11,6 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var timer: Timer?
     private var completionFeedbackTimer: Timer?
     private var menuBarState = MenuBarAgentStateModel()
+    private var watchdog = SidecarWatchdog()
+    private var lastSidecarError: String?
     private var windows: [NSWindowController] = []
     private var seenPairRequests = Set<String>()
     private var adminPort: Int {
@@ -38,20 +40,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         completionFeedbackTimer?.invalidate()
         iconAnimator.stop()
+        adminClient?.stopEvents()
         sidecar.stop()
     }
 
     private func startSidecar() {
         do {
+            sidecar.launchRestartCount = watchdog.restartCount
             try sidecar.start()
+            lastSidecarError = nil
             adminClient = AdminClient(port: adminPort, adminToken: sidecar.adminToken)
             adminClient?.startEvents { [weak self] type, payload in
                 self?.handleAdminEvent(type: type, payload: payload)
             }
             Task { await refreshStatus() }
         } catch {
+            adminClient?.stopEvents()
             adminClient = nil
             status = nil
+            lastSidecarError = error.localizedDescription
             menuBarState.serviceStartDidFail()
             refreshMenuBarPresentation()
             showError(error)
@@ -110,8 +117,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         } catch {
             status = nil
-            menuBarState.statusRefreshFailed(sidecarRunning: sidecar.isRunning)
-            refreshMenuBarPresentation()
+            if sidecar.isRunning {
+                menuBarState.statusRefreshFailed(sidecarRunning: true)
+                refreshMenuBarPresentation()
+            } else {
+                attemptAutomaticRestart(now: Date(), reason: error)
+            }
         }
     }
 
@@ -129,6 +140,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(makeInfoItem(title: "Address: \(status?.address ?? "http://localhost:\(adminPort)")"))
         let activeRequests = status?.activeRequests ?? 0
         menu.addItem(makeInfoItem(title: "Active Requests: \(activeRequests)"))
+        if let lastSidecarError {
+            menu.addItem(makeInfoItem(title: "Last Error: \(lastSidecarError)"))
+        }
         menu.addItem(.separator())
 
         menu.addItem(NSMenuItem(title: "Providers: \(status?.providersReady ?? 0)/\(status?.providersTotal ?? 0) ready", action: #selector(showProviders), keyEquivalent: "p"))
@@ -136,6 +150,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem(title: "Settings", action: #selector(showSettings), keyEquivalent: ","))
         menu.addItem(NSMenuItem(title: "Logs", action: #selector(showLogs), keyEquivalent: "l"))
+        menu.addItem(NSMenuItem(title: "Diagnostics", action: #selector(showDiagnostics), keyEquivalent: "d"))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Restart Service", action: #selector(restartService), keyEquivalent: "r"))
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q"))
@@ -241,8 +256,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let body = providers.map { provider in
                     let state = provider.ready ? "Ready" : (provider.installed ? "Not ready" : "Not installed")
                     return "\(provider.name)\n  ID: \(provider.id)\n  State: \(state)\n  Version: \(provider.version ?? "-")\n  Message: \(provider.message ?? "-")"
+                        + "\n  Reason: \(provider.reason ?? "-")"
                 }.joined(separator: "\n\n")
                 showTextWindow(title: "Providers", body: body.isEmpty ? "No providers found." : body)
+            } catch {
+                showError(error)
+            }
+        }
+    }
+
+    @objc private func showDiagnostics() {
+        Task {
+            do {
+                guard let adminClient else {
+                    showTextWindow(title: "Diagnostics", body: lastSidecarError ?? "Sidecar is not running.")
+                    return
+                }
+                let report = try await adminClient.diagnosticsReport()
+                showTextWindow(title: "Diagnostics", body: report)
             } catch {
                 showError(error)
             }
@@ -287,10 +318,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func restartService() {
         do {
             let now = Date()
+            watchdog.reset()
+            lastSidecarError = nil
+            adminClient?.stopEvents()
             adminClient = nil
             status = nil
             menuBarState.serviceDidStop(now: now)
             refreshMenuBarPresentation(now: now)
+            sidecar.launchRestartCount = watchdog.restartCount
             try sidecar.restart()
             adminClient = AdminClient(port: adminPort, adminToken: sidecar.adminToken)
             adminClient?.startEvents { [weak self] type, payload in
@@ -298,8 +333,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             Task { await refreshStatus() }
         } catch {
+            adminClient?.stopEvents()
             adminClient = nil
             status = nil
+            lastSidecarError = error.localizedDescription
             menuBarState.serviceStartDidFail()
             refreshMenuBarPresentation()
             showError(error)
@@ -315,6 +352,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windows.append(controller)
         controller.showWindow(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
+    }
+
+    private func attemptAutomaticRestart(now: Date, reason: Error) {
+        lastSidecarError = reason.localizedDescription
+        adminClient?.stopEvents()
+        adminClient = nil
+        status = nil
+
+        guard watchdog.canRestart(now: now) else {
+            menuBarState.serviceStartDidFail()
+            refreshMenuBarPresentation(now: now)
+            return
+        }
+
+        watchdog.recordRestart(now: now)
+        menuBarState.serviceDidStop(now: now)
+        refreshMenuBarPresentation(now: now)
+
+        do {
+            sidecar.launchRestartCount = watchdog.restartCount
+            try sidecar.restart()
+            lastSidecarError = nil
+            adminClient = AdminClient(port: adminPort, adminToken: sidecar.adminToken)
+            adminClient?.startEvents { [weak self] type, payload in
+                self?.handleAdminEvent(type: type, payload: payload)
+            }
+            Task { await refreshStatus() }
+        } catch {
+            lastSidecarError = error.localizedDescription
+            menuBarState.serviceStartDidFail()
+            refreshMenuBarPresentation(now: now)
+        }
     }
 
     private func showError(_ error: Error) {

@@ -6,7 +6,9 @@
   "scripts": {
     "sidecar:dev": "node --experimental-strip-types sidecar/src/main.ts --enable-fake-provider",
     "sidecar:test": "node --experimental-strip-types --test sidecar/test/*.test.ts",
+    "console:serve": "node demo/web/server.mjs",
     "demo:serve": "node demo/web/server.mjs",
+    "release:macos:dry-run": "scripts/release-macos.sh --dry-run",
     "test": "npm run sidecar:test"
   },
   "engines": {
